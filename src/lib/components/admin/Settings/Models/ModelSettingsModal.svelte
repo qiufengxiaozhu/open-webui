@@ -22,7 +22,6 @@
 	import ChevronDown from '$lib/components/icons/ChevronDown.svelte';
 	import XMark from '$lib/components/icons/XMark.svelte';
 	import ModelSelector from './ModelSelector.svelte';
-	import Model from '../Evaluations/Model.svelte';
 	import AdvancedParams from '$lib/components/chat/Settings/Advanced/AdvancedParams.svelte';
 
 	import Capabilities from '$lib/components/workspace/Models/Capabilities.svelte';

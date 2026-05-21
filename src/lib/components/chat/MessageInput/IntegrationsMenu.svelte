@@ -8,8 +8,7 @@
 		tools as _tools,
 		mobile,
 		settings,
-		toolServers,
-		terminalServers
+		toolServers
 	} from '$lib/stores';
 
 	import { getOAuthClientAuthorizationUrl } from '$lib/apis/configs';

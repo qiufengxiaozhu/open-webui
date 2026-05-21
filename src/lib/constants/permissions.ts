@@ -1,7 +1,6 @@
 export const DEFAULT_PERMISSIONS = {
 	workspace: {
 		models: false,
-		knowledge: false,
 		prompts: false,
 		tools: false,
 		skills: false,
@@ -15,18 +14,13 @@ export const DEFAULT_PERMISSIONS = {
 	sharing: {
 		models: false,
 		public_models: false,
-		knowledge: false,
-		public_knowledge: false,
 		prompts: false,
 		public_prompts: false,
 		tools: false,
 		public_tools: false,
 		skills: false,
 		public_skills: false,
-		notes: false,
-		public_notes: false,
-		public_chats: false,
-		public_calendars: false
+		public_chats: false
 	},
 	access_grants: {
 		allow_users: true
@@ -46,25 +40,16 @@ export const DEFAULT_PERMISSIONS = {
 		edit: true,
 		share: true,
 		export: true,
-		stt: true,
-		tts: true,
-		call: true,
 		multiple_models: true,
 		temporary: true,
 		temporary_enforced: false
 	},
 	features: {
 		api_keys: false,
-		notes: true,
-		channels: true,
 		folders: true,
 		direct_tool_servers: false,
 		web_search: true,
-		image_generation: true,
-		code_interpreter: true,
-		memories: true,
-		automations: false,
-		calendar: true
+		code_interpreter: true
 	},
 	settings: {
 		interface: true

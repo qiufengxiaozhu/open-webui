@@ -5,7 +5,7 @@
 	import { getContext } from 'svelte';
 
 	import { goto } from '$app/navigation';
-	import { channels, models } from '$lib/stores';
+	import { models } from '$lib/stores';
 
 	const i18n = getContext('i18n');
 
@@ -53,13 +53,7 @@
 
 		if (triggerChar === '#') {
 			if (idType === 'C') {
-				// Channel
-				const channel = $channels.find((c) => c.id === id);
-				if (channel) {
-					label = channel.name;
-				} else {
-					label = $i18n.t('Unknown');
-				}
+				label = $i18n.t('Unknown');
 			} else if (idType === 'T') {
 				// Thread
 			}
@@ -97,10 +91,7 @@
 					}
 				} else if (triggerChar === '#') {
 					if (idType === 'C') {
-						// Open channel
-						if ($channels.find((c) => c.id === id)) {
-							await goto(`/channels/${id}`);
-						}
+						// Channel mentions are no longer supported
 					} else if (idType === 'T') {
 						// Open thread
 					}

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Prompts from './Commands/Prompts.svelte';
-	import Knowledge from './Commands/Knowledge.svelte';
 	import Models from './Commands/Models.svelte';
 	import Skills from './Commands/Skills.svelte';
 	import Emojis from './Commands/Emojis.svelte';
@@ -69,31 +68,6 @@
 
 					if (type === 'prompt') {
 						insertTextHandler(data.content);
-					}
-				}}
-			/>
-		{:else if char === '#'}
-			<Knowledge
-				bind:this={suggestionElement}
-				{query}
-				bind:filteredItems
-				onSelect={(e) => {
-					const { type, data } = e;
-
-					if (type === 'knowledge') {
-						insertTextHandler('');
-
-						onUpload({
-							type: 'file',
-							data: data
-						});
-					} else if (type === 'web') {
-						insertTextHandler('');
-
-						onUpload({
-							type: 'web',
-							data: data
-						});
 					}
 				}}
 			/>

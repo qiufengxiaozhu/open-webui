@@ -26,7 +26,6 @@
 
 	export let unloadModelHandler: (modelValue: string) => void = () => {};
 	export let pinModelHandler: (modelId: string) => void = () => {};
-	export let deleteModelHandler: (model: any) => void = () => {};
 
 	export let onClick: () => void = () => {};
 
@@ -99,29 +98,6 @@
 			</div>
 
 			<div class=" shrink-0 flex items-center gap-2">
-				{#if item.model.owned_by === 'ollama'}
-					{#if (item.model.ollama?.details?.parameter_size ?? '') !== ''}
-						<div class="flex items-center translate-y-[0.5px]">
-							<Tooltip
-								content={`${
-									item.model.ollama?.details?.quantization_level
-										? item.model.ollama?.details?.quantization_level + ' '
-										: ''
-								}${
-									item.model.ollama?.size
-										? `(${(item.model.ollama?.size / 1024 ** 3).toFixed(1)}GB)`
-										: ''
-								}`}
-								className="self-end"
-							>
-								<span class=" text-xs font-medium text-gray-600 dark:text-gray-400 line-clamp-1"
-									>{item.model.ollama?.details?.parameter_size ?? ''}</span
-								>
-							</Tooltip>
-						</div>
-					{/if}
-				{/if}
-
 				{#if item.model.loaded}
 					<div class="flex items-center translate-y-[0.5px] px-0.5">
 						<Tooltip
@@ -260,7 +236,6 @@
 			bind:show={showMenu}
 			model={item.model}
 			{pinModelHandler}
-			{deleteModelHandler}
 			copyLinkHandler={() => {
 				copyLinkHandler(item.model);
 			}}

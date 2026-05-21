@@ -28,9 +28,7 @@
 		banners,
 		user,
 		socket,
-		audioQueue,
 		showControls,
-		showCallOverlay,
 		currentChatPage,
 		temporaryChatEnabled,
 		mobile,
@@ -39,12 +37,10 @@
 		artifactContents,
 		tools,
 		toolServers,
-		terminalServers,
 		functions,
 		selectedFolder,
 		pinnedChats,
 		showEmbeds,
-		selectedTerminalId,
 		showFileNavPath,
 		showFileNavDir,
 		chatRequestQueues,
@@ -65,7 +61,6 @@
 		isYoutubeUrl,
 		displayFileHandler
 	} from '$lib/utils';
-	import { AudioQueue } from '$lib/utils/audio';
 
 	import {
 		archiveChatById,
@@ -311,14 +306,6 @@
 		}
 	};
 
-	/** Check whether a terminal ID references an available system or direct terminal. */
-	const isTerminalAvailable = (tid: string): boolean => {
-		return (
-			($terminalServers ?? []).some((t) => t.id && t.id === tid) ||
-			($settings?.terminalServers ?? []).some((s) => s.url === tid)
-		);
-	};
-
 	const setDefaults = async () => {
 		if (!$tools) {
 			tools.set(await getTools(localStorage.token));
@@ -374,8 +361,7 @@
 			if (model?.info?.meta?.defaultFeatureIds) {
 				if (
 					model.info?.meta?.capabilities?.['image_generation'] &&
-					$config?.features?.enable_image_generation &&
-					($user?.role === 'admin' || $user?.permissions?.features?.image_generation)
+					$config?.features?.enable_image_generation
 				) {
 					imageGenerationEnabled = model.info.meta.defaultFeatureIds.includes('image_generation');
 				}
@@ -394,14 +380,6 @@
 					($user?.role === 'admin' || $user?.permissions?.features?.code_interpreter)
 				) {
 					codeInterpreterEnabled = model.info.meta.defaultFeatureIds.includes('code_interpreter');
-				}
-			}
-
-			// Set Default Terminal — only if the referenced terminal actually exists
-			if (model?.info?.meta?.terminalId) {
-				const tid = model.info.meta.terminalId;
-				if (isTerminalAvailable(tid)) {
-					selectedTerminalId.set(tid);
 				}
 			}
 		}
@@ -714,7 +692,6 @@
 	const stopAudio = () => {
 		try {
 			speechSynthesis.cancel();
-			$audioQueue?.stop();
 		} catch {}
 	};
 
@@ -723,27 +700,6 @@
 		console.log('mounted');
 		window.addEventListener('message', onMessageHandler);
 		$socket?.on('events', chatEventHandler);
-
-		$audioQueue?.destroy();
-
-		const audioQueueInstance = new AudioQueue(document.getElementById('audioElement'));
-		audioQueue.set(audioQueueInstance);
-
-		// Restore direct terminal enabled states based on persisted selectedTerminalId
-		if ($settings?.terminalServers?.length) {
-			settings.set({
-				...$settings,
-				terminalServers: ($settings.terminalServers ?? []).map((s) => ({
-					...s,
-					enabled: $selectedTerminalId !== null && s.url === $selectedTerminalId
-				}))
-			});
-		}
-
-		// Clear stale selectedTerminalId if the referenced terminal no longer exists
-		if ($selectedTerminalId && !isTerminalAvailable($selectedTerminalId)) {
-			selectedTerminalId.set(null);
-		}
 
 		const pageSubscribe = page.subscribe(async (p) => {
 			if (p.url.pathname === '/') {
@@ -776,7 +732,6 @@
 			}
 
 			if (!value) {
-				showCallOverlay.set(false);
 				showArtifacts.set(false);
 				showEmbeds.set(false);
 			}
@@ -844,8 +799,6 @@
 				selectedFolderSubscribe();
 				window.removeEventListener('message', onMessageHandler);
 				$socket?.off('events', chatEventHandler);
-				audioQueueInstance?.destroy();
-				audioQueue.set(null);
 			} catch (e) {
 				console.error(e);
 			}
@@ -1198,7 +1151,6 @@
 		if ($mobile) {
 			await showControls.set(false);
 		}
-		await showCallOverlay.set(false);
 		await showArtifacts.set(false);
 
 		if ($page.url.pathname.includes('/c/')) {
@@ -1264,25 +1216,12 @@
 			}
 		}
 
-		if ($page.url.searchParams.get('call') === 'true') {
-			showCallOverlay.set(true);
-			showControls.set(true);
-		}
-
-		// Consume one-shot desktop event (e.g. Spotlight query, call shortcut)
+		// Consume one-shot desktop event (e.g. Spotlight query)
 		if ($desktopEvent) {
 			const event = $desktopEvent;
 			desktopEvent.set(null);
 
-			if (event.type === 'call') {
-				// Defer to next macrotask so the call overlay isn't clobbered by
-				// showControlsSubscribe's initial callback (value=false → set(false))
-				// which runs as a pending microtask after this function.
-				setTimeout(() => {
-					showCallOverlay.set(true);
-					showControls.set(true);
-				}, 0);
-			} else if (event.type === 'query') {
+			if (event.type === 'query') {
 				const query = event.data?.query;
 				const eventFiles = event.data?.files;
 
@@ -1747,31 +1686,6 @@
 					if (navigator.vibrate && ($settings?.hapticFeedback ?? false)) {
 						navigator.vibrate(5);
 					}
-
-					// Emit chat event for TTS (only when call overlay is active)
-					if ($showCallOverlay) {
-						const messageContentParts = getMessageContentParts(
-							removeAllDetails(message.content),
-							$config?.audio?.tts?.split_on ?? 'punctuation'
-						);
-						messageContentParts.pop();
-
-						// dispatch only last sentence and make sure it hasn't been dispatched before
-						if (
-							messageContentParts.length > 0 &&
-							messageContentParts[messageContentParts.length - 1] !== message.lastSentence
-						) {
-							message.lastSentence = messageContentParts[messageContentParts.length - 1];
-							eventTarget.dispatchEvent(
-								new CustomEvent('chat', {
-									detail: {
-										id: message.id,
-										content: messageContentParts[messageContentParts.length - 1]
-									}
-								})
-							);
-						}
-					}
 				}
 			}
 		}
@@ -1782,31 +1696,6 @@
 
 			if (navigator.vibrate && ($settings?.hapticFeedback ?? false)) {
 				navigator.vibrate(5);
-			}
-
-			// Emit chat event for TTS (only when call overlay is active)
-			if ($showCallOverlay) {
-				const messageContentParts = getMessageContentParts(
-					removeAllDetails(message.content),
-					$config?.audio?.tts?.split_on ?? 'punctuation'
-				);
-				messageContentParts.pop();
-
-				// dispatch only last sentence and make sure it hasn't been dispatched before
-				if (
-					messageContentParts.length > 0 &&
-					messageContentParts[messageContentParts.length - 1] !== message.lastSentence
-				) {
-					message.lastSentence = messageContentParts[messageContentParts.length - 1];
-					eventTarget.dispatchEvent(
-						new CustomEvent('chat', {
-							detail: {
-								id: message.id,
-								content: messageContentParts[messageContentParts.length - 1]
-							}
-						})
-					);
-				}
 			}
 		}
 
@@ -1828,25 +1717,9 @@
 				copyToClipboard(message.content);
 			}
 
-			if ($settings.responseAutoPlayback && !$showCallOverlay) {
+			if ($settings.responseAutoPlayback) {
 				await tick();
 				document.getElementById(`speak-button-${message.id}`)?.click();
-			}
-
-			// Emit chat event for TTS (only when call overlay is active)
-			if ($showCallOverlay) {
-				let lastMessageContentPart =
-					getMessageContentParts(
-						removeAllDetails(message.content),
-						$config?.audio?.tts?.split_on ?? 'punctuation'
-					)?.at(-1) ?? '';
-				if (lastMessageContentPart) {
-					eventTarget.dispatchEvent(
-						new CustomEvent('chat', {
-							detail: { id: message.id, content: lastMessageContentPart }
-						})
-					);
-				}
 			}
 			eventTarget.dispatchEvent(
 				new CustomEvent('chat:finish', {
@@ -1928,11 +1801,8 @@
 
 		history.currentId = userMessageId;
 
-		// focus on chat input (skip during voice call to avoid triggering mobile keyboard)
-		if (!$showCallOverlay) {
-			const chatInput = document.getElementById('chat-input');
-			chatInput?.focus();
-		}
+		const chatInput = document.getElementById('chat-input');
+		chatInput?.focus();
 
 		saveSessionSelectedModels();
 
@@ -2169,12 +2039,8 @@
 
 		if ($config?.features)
 			features = {
-				voice: $showCallOverlay,
 				image_generation:
-					$config?.features?.enable_image_generation &&
-					($user?.role === 'admin' || $user?.permissions?.features?.image_generation)
-						? imageGenerationEnabled
-						: false,
+					$config?.features?.enable_image_generation ? imageGenerationEnabled : false,
 				code_interpreter:
 					$config?.features?.enable_code_interpreter &&
 					($user?.role === 'admin' || $user?.permissions?.features?.code_interpreter)
@@ -2381,12 +2247,6 @@
 			});
 		}
 
-		// Use the user-selected terminal from the dropdown
-		const activeTerminalId = $selectedTerminalId ?? null;
-
-		// Only send terminal_id if the model has terminal capability enabled
-		const terminalEnabled = model.info?.meta?.capabilities?.terminal ?? true;
-
 		const res = await generateOpenAIChatCompletion(
 			localStorage.token,
 			{
@@ -2404,13 +2264,10 @@
 				filter_ids: selectedFilterIds.length > 0 ? selectedFilterIds : undefined,
 				tool_ids: toolIds.length > 0 ? toolIds : undefined,
 				skill_ids: skillIds.length > 0 ? skillIds : undefined,
-				terminal_id: terminalEnabled ? (activeTerminalId ?? undefined) : undefined,
 				tool_servers: [
 					...($toolServers ?? []).filter(
 						(server, idx) => toolServerIds.includes(idx) || toolServerIds.includes(server?.id)
-					),
-					// Direct terminal servers — always included when enabled (not routed through selectedToolIds)
-					...($terminalServers ?? []).filter((t) => !t.id)
+					)
 				],
 				features: getFeatures(),
 				variables: {
@@ -2911,8 +2768,6 @@
 			: `${$WEBUI_NAME}`}
 	</title>
 </svelte:head>
-
-<audio id="audioElement" style="display: none;"></audio>
 
 <DeleteConfirmDialog
 	bind:show={showDeleteConfirm}

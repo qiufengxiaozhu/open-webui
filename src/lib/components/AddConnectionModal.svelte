@@ -5,7 +5,6 @@
 
 	import { settings } from '$lib/stores';
 	import { verifyOpenAIConnection } from '$lib/apis/openai';
-	import { verifyOllamaConnection } from '$lib/apis/ollama';
 
 	import Modal from '$lib/components/common/Modal.svelte';
 	import Plus from '$lib/components/icons/Plus.svelte';
@@ -26,7 +25,6 @@
 	export let show = false;
 	export let edit = false;
 
-	export let ollama = false;
 	export let direct = false;
 
 	export let connection = null;
@@ -57,22 +55,6 @@
 
 	let loading = false;
 	let showDeleteConfirmDialog = false;
-
-	const verifyOllamaHandler = async () => {
-		// remove trailing slash from url
-		url = url.replace(/\/$/, '');
-
-		const res = await verifyOllamaConnection(localStorage.token, {
-			url,
-			key
-		}).catch((error) => {
-			toast.error(`${error}`);
-		});
-
-		if (res) {
-			toast.success($i18n.t('Server connection verified'));
-		}
-	};
 
 	const verifyOpenAIHandler = async () => {
 		// remove trailing slash from url
@@ -117,11 +99,7 @@
 	};
 
 	const verifyHandler = () => {
-		if (ollama) {
-			verifyOllamaHandler();
-		} else {
-			verifyOpenAIHandler();
-		}
+		verifyOpenAIHandler();
 	};
 
 	const addModelHandler = () => {
@@ -134,7 +112,7 @@
 	const submitHandler = async () => {
 		loading = true;
 
-		if (!ollama && !url) {
+		if (!url) {
 			loading = false;
 			toast.error($i18n.t('URL is required'));
 			return;
@@ -189,7 +167,7 @@
 				connection_type: connectionType,
 				auth_type,
 				headers: headers ? JSON.parse(headers) : undefined,
-				...(provider ? { provider } : !ollama && azure ? { azure: true } : {}),
+				...(provider ? { provider } : azure ? { azure: true } : {}),
 				...(azure ? { api_version: apiVersion } : {}),
 				...(apiType ? { api_type: apiType } : {})
 			}
@@ -223,14 +201,10 @@
 			prefixId = connection.config?.prefix_id ?? '';
 			modelIds = connection.config?.model_ids ?? [];
 
-			if (ollama) {
-				connectionType = connection.config?.connection_type ?? 'local';
-			} else {
-				connectionType = connection.config?.connection_type ?? 'external';
-				provider = connection.config?.provider ?? (connection.config?.azure ? 'azure' : '');
-				apiVersion = connection.config?.api_version ?? '';
-				apiType = connection.config?.api_type ?? '';
-			}
+			connectionType = connection.config?.connection_type ?? 'external';
+			provider = connection.config?.provider ?? (connection.config?.azure ? 'azure' : '');
+			apiVersion = connection.config?.api_version ?? '';
+			apiType = connection.config?.api_type ?? '';
 		}
 	};
 
@@ -315,12 +289,11 @@
 										bind:value={url}
 										placeholder={$i18n.t('API Base URL')}
 										autocomplete="off"
-										list={ollama ? undefined : 'suggestions'}
+										list="suggestions"
 										required
 									/>
 
-									{#if !ollama}
-										<datalist id="suggestions">
+									<datalist id="suggestions">
 											<option value="https://api.openai.com/v1" />
 											<option value="https://api.anthropic.com/v1" />
 											<option value="https://generativelanguage.googleapis.com/v1beta/openai" />
@@ -329,7 +302,6 @@
 											<option value="https://openrouter.ai/api/v1" />
 											<option value="https://api.x.ai/v1" />
 										</datalist>
-									{/if}
 								</div>
 							</div>
 
@@ -385,14 +357,11 @@
 										>
 											<option value="none">{$i18n.t('None')}</option>
 											<option value="bearer">{$i18n.t('Bearer')}</option>
-
-											{#if !ollama}
-												<option value="session">{$i18n.t('Session')}</option>
-												{#if !direct}
-													<option value="system_oauth">{$i18n.t('OAuth')}</option>
-													{#if azure}
-														<option value="microsoft_entra_id">{$i18n.t('Entra ID')}</option>
-													{/if}
+											<option value="session">{$i18n.t('Session')}</option>
+											{#if !direct}
+												<option value="system_oauth">{$i18n.t('OAuth')}</option>
+												{#if azure}
+													<option value="microsoft_entra_id">{$i18n.t('Entra ID')}</option>
 												{/if}
 											{/if}
 										</select>
@@ -435,7 +404,7 @@
 							</div>
 						</div>
 
-						{#if !ollama && !direct}
+						{#if !direct}
 							<div class="flex gap-2 mt-2">
 								<div class="flex flex-col w-full">
 									<label
@@ -492,7 +461,7 @@
 							</div>
 						</div>
 
-						{#if !ollama && !direct}
+						{#if !direct}
 							<div class="flex flex-row justify-between items-center w-full mt-2">
 								<label
 									for="provider-select"
@@ -540,7 +509,7 @@
 							</div>
 						{/if}
 
-						{#if !ollama && !direct}
+						{#if !direct}
 							<div class="flex flex-row justify-between items-center w-full mt-1">
 								<label
 									for="api-type-toggle"
@@ -617,20 +586,9 @@
 									class={`text-gray-500 text-xs text-center py-2 px-10
 								${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : ''}`}
 								>
-									{#if ollama}
-										{$i18n.t('Leave empty to include all models from "{{url}}/api/tags" endpoint', {
-											url: url
-										})}
-									{:else if azure}
-										{$i18n.t('Deployment names are required for Azure OpenAI')}
-										<!-- {$i18n.t('Leave empty to include all models from "{{url}}" endpoint', {
-											url: `${url}/openai/deployments`
-										})} -->
-									{:else}
-										{$i18n.t('Leave empty to include all models from "{{url}}/models" endpoint', {
-											url: url
-										})}
-									{/if}
+									{$i18n.t('Leave empty to include all models from "{{url}}/models" endpoint', {
+										url: url
+									})}
 								</div>
 							{/if}
 						</div>

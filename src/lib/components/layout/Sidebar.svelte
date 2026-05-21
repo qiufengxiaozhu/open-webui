@@ -100,7 +100,6 @@
 				return (
 					$user?.role === 'admin' ||
 					$user?.permissions?.workspace?.models ||
-					$user?.permissions?.workspace?.knowledge ||
 					$user?.permissions?.workspace?.prompts ||
 					$user?.permissions?.workspace?.tools
 				);

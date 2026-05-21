@@ -1,17 +1,14 @@
 <script lang="ts">
 	import Switch from '$lib/components/common/Switch.svelte';
 	import { config, models, settings, user } from '$lib/stores';
-	import { createEventDispatcher, onMount, getContext, tick } from 'svelte';
+	import { createEventDispatcher, onMount, getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import ManageModal from './Personalization/ManageModal.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	const dispatch = createEventDispatcher();
 
 	const i18n = getContext('i18n');
 
 	export let saveSettings: Function;
-
-	let showManageModal = false;
 
 	// Addons
 	let enableMemory = false;
@@ -20,8 +17,6 @@
 		enableMemory = $settings?.memory ?? false;
 	});
 </script>
-
-<ManageModal bind:show={showManageModal} />
 
 <form
 	id="tab-personalization"
@@ -73,18 +68,6 @@
 				<div>- “What do you remember about me?”</div>
 				<div>- “Where did we leave off on my last project?”</div>
 			</div> -->
-		</div>
-
-		<div class="mt-3 mb-1 ml-1">
-			<button
-				type="button"
-				class=" px-3.5 py-1.5 font-medium hover:bg-black/5 dark:hover:bg-white/5 outline outline-1 outline-gray-300 dark:outline-gray-800 rounded-3xl"
-				on:click={() => {
-					showManageModal = true;
-				}}
-			>
-				{$i18n.t('Manage')}
-			</button>
 		</div>
 	</div>
 

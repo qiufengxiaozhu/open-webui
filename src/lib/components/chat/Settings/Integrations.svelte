@@ -6,20 +6,18 @@
 	const dispatch = createEventDispatcher();
 	const i18n = getContext('i18n');
 
-	import { settings, toolServers, terminalServers } from '$lib/stores';
+	import { settings, toolServers } from '$lib/stores';
 
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Plus from '$lib/components/icons/Plus.svelte';
 	import Connection from './Tools/Connection.svelte';
-	import Terminals from './Integrations/Terminals.svelte';
 
 	import AddToolServerModal from '$lib/components/AddToolServerModal.svelte';
 
 	export let saveSettings: Function;
 
 	let servers = null;
-	let terminalServerConfigs: { url: string; key: string; name?: string; enabled: boolean }[] = [];
 	let showConnectionModal = false;
 
 	const addConnectionHandler = async (server) => {
@@ -29,8 +27,7 @@
 
 	const updateHandler = async () => {
 		await saveSettings({
-			toolServers: servers,
-			terminalServers: terminalServerConfigs
+			toolServers: servers
 		});
 
 		let toolServersData = await getToolServersData($settings?.toolServers ?? []);
@@ -44,30 +41,10 @@
 			return true;
 		});
 		toolServers.set(toolServersData);
-
-		// Refresh terminal servers store (preserve system terminals)
-		const existingSystemTerminals = ($terminalServers ?? []).filter((t) => t.id);
-		const activeTerminals = terminalServerConfigs.filter((s) => s.enabled);
-		if (activeTerminals.length > 0) {
-			let terminalServersData = await getToolServersData(
-				activeTerminals.map((t) => ({
-					url: t.url,
-					auth_type: t.auth_type ?? 'bearer',
-					key: t.key ?? '',
-					path: t.path ?? '/openapi.json',
-					config: { enable: true }
-				}))
-			);
-			terminalServersData = terminalServersData.filter((data) => data && !data.error);
-			terminalServers.set([...terminalServersData, ...existingSystemTerminals]);
-		} else {
-			terminalServers.set(existingSystemTerminals);
-		}
 	};
 
 	onMount(async () => {
 		servers = $settings?.toolServers ?? [];
-		terminalServerConfigs = $settings?.terminalServers ?? [];
 	});
 </script>
 
@@ -133,30 +110,6 @@
 							href="https://github.com/open-webui/openapi-servers"
 							target="_blank">{$i18n.t('Learn more about OpenAPI tool servers.')} ↗</a
 						>
-					</div>
-				</div>
-
-				<hr class="border-gray-100/50 dark:border-gray-850/50 my-4" />
-
-				<div class="pr-1.5">
-					<Terminals bind:servers={terminalServerConfigs} onChange={() => updateHandler()} />
-
-					<div class="mt-1.5">
-						<div
-							class={`text-xs ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
-						>
-							{$i18n.t(
-								'Connect to Open Terminal instances to browse files and use them as always-on tools. Only one can be active at a time.'
-							)}
-						</div>
-
-						<div class="text-xs text-gray-600 dark:text-gray-300 mt-1">
-							<a
-								class="underline"
-								href="https://github.com/open-webui/open-terminal"
-								target="_blank">{$i18n.t('Learn more about Open Terminal')} ↗</a
-							>
-						</div>
 					</div>
 				</div>
 			</div>

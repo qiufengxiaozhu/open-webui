@@ -9,29 +9,14 @@
 
 	import XMark from '$lib/components/icons/XMark.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
-	import ManageOllama from './Manage/ManageOllama.svelte';
-	import { getOllamaConfig } from '$lib/apis/ollama';
 	import Spinner from '$lib/components/common/Spinner.svelte';
-	import ManageMultipleOllama from './Manage/ManageMultipleOllama.svelte';
 
 	export let show = false;
 
 	let selected = null;
-	let ollamaConfig = null;
 
 	onMount(async () => {
 		if ($user?.role === 'admin') {
-			await Promise.all([
-				(async () => {
-					ollamaConfig = await getOllamaConfig(localStorage.token);
-				})()
-			]);
-
-			if (ollamaConfig) {
-				selected = 'ollama';
-				return;
-			}
-
 			selected = '';
 		}
 	});
@@ -62,33 +47,9 @@
 						</div>
 					</div>
 				{:else if selected !== null}
-					<div class=" flex w-full flex-col">
-						<div
-							class="flex gap-1 scrollbar-none overflow-x-auto w-fit text-center text-sm font-medium rounded-full bg-transparent dark:text-gray-200"
-						>
-							<button
-								class="min-w-fit p-1.5 {selected === 'ollama'
-									? ''
-									: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
-								on:click={() => {
-									selected = 'ollama';
-								}}>{$i18n.t('Ollama')}</button
-							>
-
-							<!-- <button
-								class="min-w-fit p-1.5 {selected === 'llamacpp'
-									? ''
-									: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
-								on:click={() => {
-									selected = 'llamacpp';
-								}}>{$i18n.t('Llama.cpp')}</button
-							> -->
-						</div>
-
-						<div class=" px-1.5 py-1">
-							{#if selected === 'ollama'}
-								<ManageMultipleOllama {ollamaConfig} />
-							{/if}
+					<div class=" py-5 text-gray-400 text-xs">
+						<div>
+							{$i18n.t('No inference engine with management support found')}
 						</div>
 					</div>
 				{:else}

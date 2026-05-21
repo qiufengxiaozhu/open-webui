@@ -16,12 +16,10 @@
 	import { synthesizeOpenAISpeech } from '$lib/apis/openai';
 
 	import {
-		audioQueue,
 		config,
 		models,
 		settings,
 		temporaryChatEnabled,
-		TTSWorker,
 		user
 	} from '$lib/stores';
 	import {
@@ -42,15 +40,12 @@
 	import Skeleton from './Skeleton.svelte';
 	import Image from '$lib/components/common/Image.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import RateComment from './RateComment.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
-	import WebSearchResults from './ResponseMessage/WebSearchResults.svelte';
 	import Sparkles from '$lib/components/icons/Sparkles.svelte';
 
 	import DeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 
 	import Error from './Error.svelte';
-	import Citations from './Citations.svelte';
 	import CodeExecutions from './CodeExecutions.svelte';
 	import ContentRenderer from './ContentRenderer.svelte';
 	import FileItem from '$lib/components/common/FileItem.svelte';
@@ -60,7 +55,6 @@
 	import RegenerateMenu from './ResponseMessage/RegenerateMenu.svelte';
 	import StatusHistory from './ResponseMessage/StatusHistory.svelte';
 	import FullHeightIframe from '$lib/components/common/FullHeightIframe.svelte';
-	import OutputEditView from './OutputEditView.svelte';
 
 	interface MessageType {
 		id: string;
@@ -158,8 +152,6 @@
 	export let editCodeBlock = true;
 	export let topPadding = false;
 
-	let citationsElement: HTMLDivElement;
-
 	let contentContainerElement: HTMLDivElement;
 	let buttonsContainerElement: HTMLDivElement;
 	let showDeleteConfirm = false;
@@ -175,7 +167,6 @@
 
 	let edit = false;
 	let editedContent = '';
-	let editedOutput: any[] | null = null;
 	let editTextAreaElement: HTMLTextAreaElement;
 
 	let messageIndexEdit = false;
@@ -186,7 +177,58 @@
 	let loadingSpeech = false;
 	let speakAbort: AbortController | null = null;
 
-	let showRateComment = false;
+	let ttsAudio: HTMLAudioElement | null = null;
+	let ttsQueue: string[] = [];
+	let ttsCurrentUrl: string | null = null;
+
+	const getTtsAudio = () => {
+		if (!ttsAudio) {
+			ttsAudio = new Audio();
+			ttsAudio.addEventListener('ended', () => {
+				if (ttsCurrentUrl) {
+					URL.revokeObjectURL(ttsCurrentUrl);
+					ttsCurrentUrl = null;
+				}
+				playNextTtsInQueue();
+			});
+		}
+		return ttsAudio;
+	};
+
+	const haltTtsQueue = () => {
+		const audio = getTtsAudio();
+		audio.pause();
+		audio.currentTime = 0;
+		audio.removeAttribute('src');
+		audio.load();
+		if (ttsCurrentUrl) {
+			URL.revokeObjectURL(ttsCurrentUrl);
+			ttsCurrentUrl = null;
+		}
+		ttsQueue = [];
+	};
+
+	const playNextTtsInQueue = () => {
+		const nextUrl = ttsQueue.shift() ?? null;
+		if (!nextUrl) {
+			speaking = false;
+			speakingIdx = undefined;
+			return;
+		}
+
+		ttsCurrentUrl = nextUrl;
+		const audio = getTtsAudio();
+		audio.src = nextUrl;
+		audio.play();
+	};
+
+	const enqueueTts = (url: string) => {
+		ttsQueue.push(url);
+		const audio = getTtsAudio();
+		if (audio.paused && !ttsCurrentUrl) {
+			playNextTtsInQueue();
+		}
+	};
 
 	const copyToClipboard = async (text) => {
 		text = removeAllDetails(text);
@@ -207,7 +249,7 @@
 
 		try {
 			speechSynthesis.cancel();
-			$audioQueue?.stop();
+			haltTtsQueue();
 		} catch {}
 
 		speaking = false;
@@ -261,12 +303,8 @@
 				}
 			}, 100);
 		} else {
-			$audioQueue.setId(`${message.id}`);
-			$audioQueue.setPlaybackRate($settings.audio?.tts?.playbackRate ?? 1);
-			$audioQueue.onStopped = () => {
-				speaking = false;
-				speakingIdx = undefined;
-			};
+			haltTtsQueue();
+			getTtsAudio().playbackRate = $settings.audio?.tts?.playbackRate ?? 1;
 
 			loadingSpeech = true;
 			const messageContentParts: string[] = getMessageContentParts(
@@ -307,7 +345,7 @@
 					if (res && speaking) {
 						const blob = await res.blob();
 						const url = URL.createObjectURL(blob);
-						$audioQueue.enqueue(url);
+						enqueueTts(url);
 						loadingSpeech = false;
 					}
 				}
@@ -342,31 +380,13 @@
 		return restoredContent;
 	}
 
-	/** Extract plain text from output items for immediate display after edit.
-	 *  NOT a serialize_output port — just grabs text parts. Backend re-serializes
-	 *  the full rich content (with <details> blocks) on save. */
-	function extractTextFromOutput(output: any[]): string {
-		return output
-			.filter((item) => item.type === 'message')
-			.flatMap((item) => (item.content ?? []).map((p: any) => p.text ?? ''))
-			.join('\n')
-			.trim();
-	}
-
 	const editMessageHandler = async () => {
 		edit = true;
-
-		if (message.output?.length) {
-			// Structured edit: use the block editor
-			editedOutput = structuredClone(message.output);
-		} else {
-			// Legacy text edit: use the textarea
-			editedContent = preprocessForEditing(message.content);
-		}
+		editedContent = preprocessForEditing(message.content);
 
 		await tick();
 
-		if (!editedOutput && editTextAreaElement) {
+		if (editTextAreaElement) {
 			const messagesContainer = document.getElementById('messages-container');
 			const savedScrollTop = messagesContainer?.scrollTop;
 
@@ -378,34 +398,21 @@
 	};
 
 	const editMessageConfirmHandler = async () => {
-		if (editedOutput) {
-			// Structured edit: keep original rich content for immediate display;
-			// backend will re-derive content from output on save.
-			editMessage(message.id, { content: message.content, output: editedOutput }, false);
-		} else {
-			// Legacy text edit
-			const messageContent = postprocessAfterEditing(editedContent ?? '');
-			editMessage(message.id, { content: messageContent }, false);
-		}
+		const messageContent = postprocessAfterEditing(editedContent ?? '');
+		editMessage(message.id, { content: messageContent }, false);
 
 		edit = false;
 		editedContent = '';
-		editedOutput = null;
 
 		await tick();
 	};
 
 	const saveAsCopyHandler = async () => {
-		if (editedOutput) {
-			editMessage(message.id, { content: message.content, output: editedOutput });
-		} else {
-			const messageContent = postprocessAfterEditing(editedContent ?? '');
-			editMessage(message.id, { content: messageContent });
-		}
+		const messageContent = postprocessAfterEditing(editedContent ?? '');
+		editMessage(message.id, { content: messageContent });
 
 		edit = false;
 		editedContent = '';
-		editedOutput = null;
 
 		await tick();
 	};
@@ -413,7 +420,6 @@
 	const cancelEditMessage = async () => {
 		edit = false;
 		editedContent = '';
-		editedOutput = null;
 		await tick();
 	};
 
@@ -487,8 +493,6 @@
 		await tick();
 
 		if (!details) {
-			showRateComment = true;
-
 			if (!updatedMessage.annotation?.tags && (message?.content ?? '') !== '') {
 				// attempt to generate tags
 				const tags = await generateTags(localStorage.token, message.model, messages, chatId).catch(
@@ -579,6 +583,8 @@
 	});
 
 	onDestroy(() => {
+		stopAudio();
+
 		if (buttonsContainerElement) {
 			buttonsContainerElement.removeEventListener('wheel', buttonsWheelHandler);
 		}
@@ -690,17 +696,7 @@
 
 						{#if edit === true}
 							<div class="w-full bg-gray-50 dark:bg-gray-800 rounded-3xl px-3 py-3 my-2">
-								{#if editedOutput}
-									<!-- Structured output editor (visual + JSON toggle) -->
-									<OutputEditView
-										output={editedOutput}
-										onChange={(updated) => {
-											editedOutput = updated;
-										}}
-									/>
-								{:else}
-									<!-- Legacy textarea for messages without output -->
-									<textarea
+								<textarea
 										id="message-edit-{message.id}"
 										bind:this={editTextAreaElement}
 										class=" bg-transparent outline-hidden w-full resize-none"
@@ -727,8 +723,6 @@
 											}
 										}}
 									/>
-								{/if}
-
 								<div class=" mt-2 mb-1 flex justify-between text-sm font-medium">
 									<div>
 										<button
@@ -795,13 +789,6 @@
 									onTaskClick={async (e) => {
 										console.log(e);
 									}}
-									onSourceClick={async (id) => {
-										console.log(id);
-
-										if (citationsElement) {
-											citationsElement?.showSourceModal(id);
-										}
-									}}
 									onSetInputText={(text) => {
 										setInputText(text);
 									}}
@@ -817,16 +804,6 @@
 
 							{#if message?.error}
 								<Error content={message?.error?.content ?? message.content} />
-							{/if}
-
-							{#if (message?.sources || message?.citations) && (model?.info?.meta?.capabilities?.citations ?? true)}
-								<Citations
-									bind:this={citationsElement}
-									id={message?.id}
-									{chatId}
-									sources={message?.sources ?? message?.citations}
-									{readOnly}
-								/>
 							{/if}
 
 							{#if message.code_executions}
@@ -1000,7 +977,7 @@
 									</button>
 								</Tooltip>
 
-								{#if !readOnly && ($user?.role === 'admin' || ($user?.permissions?.chat?.tts ?? true))}
+								{#if !readOnly}
 									<Tooltip content={$i18n.t('Read Aloud')} placement="bottom">
 										<button
 											aria-label={$i18n.t('Read Aloud')}
@@ -1147,11 +1124,6 @@
 												disabled={feedbackLoading}
 												on:click={async () => {
 													await feedbackHandler(1);
-													window.setTimeout(() => {
-														document
-															.getElementById(`message-feedback-${message.id}`)
-															?.scrollIntoView();
-													}, 0);
 												}}
 											>
 												<svg
@@ -1185,11 +1157,6 @@
 												disabled={feedbackLoading}
 												on:click={async () => {
 													await feedbackHandler(-1);
-													window.setTimeout(() => {
-														document
-															.getElementById(`message-feedback-${message.id}`)
-															?.scrollIntoView();
-													}, 0);
 												}}
 											>
 												<svg
@@ -1254,7 +1221,6 @@
 												type="button"
 												class="hidden regenerate-response-button"
 												on:click={() => {
-													showRateComment = false;
 													regenerateResponse(message);
 
 													(model?.actions ?? []).forEach((action) => {
@@ -1273,7 +1239,6 @@
 
 											<RegenerateMenu
 												onRegenerate={(prompt = null) => {
-													showRateComment = false;
 													regenerateResponse(message, prompt);
 
 													(model?.actions ?? []).forEach((action) => {
@@ -1323,7 +1288,6 @@
 														? 'visible'
 														: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition regenerate-response-button"
 													on:click={() => {
-														showRateComment = false;
 														regenerateResponse(message);
 
 														(model?.actions ?? []).forEach((action) => {
@@ -1431,18 +1395,6 @@
 							{/if}
 						{/if}
 					</div>
-
-					{#if message.done && showRateComment}
-						<RateComment
-							bind:message
-							bind:show={showRateComment}
-							on:save={async (e) => {
-								await feedbackHandler(null, {
-									...e.detail
-								});
-							}}
-						/>
-					{/if}
 
 					{#if (isLastMessage || ($settings?.keepFollowUpPrompts ?? false)) && message.done && !readOnly && (message?.followUps ?? []).length > 0}
 						<div class="mt-2.5" in:fade={{ duration: 100 }}>
