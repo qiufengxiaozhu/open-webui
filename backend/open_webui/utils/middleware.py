@@ -2458,14 +2458,6 @@ async def process_chat_payload(request, form_data, user, metadata, model):
     variables = form_data.pop('variables', None)
     payload_tools = form_data.get('tools', None)  # snapshot before filters
 
-    # Process the form_data through the pipeline
-    try:
-        from open_webui.routers.pipelines import process_pipeline_inlet_filter
-
-        form_data = await process_pipeline_inlet_filter(request, form_data, user, models)
-    except Exception as e:
-        raise e
-
     try:
         filter_ids = await get_sorted_filter_ids(request, model, metadata.get('filter_ids', []))
         filter_functions = await Functions.get_functions_by_ids(filter_ids)
@@ -3336,15 +3328,6 @@ async def outlet_filter_handler(ctx):
             'session_id': metadata.get('session_id'),
             'id': message_id,
         }
-
-        # Pipeline outlet filters
-        models = request.app.state.MODELS
-        try:
-            from open_webui.routers.pipelines import process_pipeline_outlet_filter
-
-            outlet_data = await process_pipeline_outlet_filter(request, outlet_data, user, models)
-        except Exception as e:
-            log.debug(f'Pipeline outlet filter error: {e}')
 
         # Function outlet filters
         extra_params = {
