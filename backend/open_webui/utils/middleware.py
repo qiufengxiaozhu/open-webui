@@ -41,22 +41,7 @@ from open_webui.routers.tasks import (
     generate_image_prompt,
     generate_chat_tags,
 )
-from open_webui.routers.retrieval import (
-    process_web_search,
-    SearchForm,
-)
 from open_webui.utils.tools import get_builtin_tools
-from open_webui.routers.images import (
-    image_generations,
-    CreateImageForm,
-    image_edits,
-    EditImageForm,
-)
-from open_webui.routers.pipelines import (
-    process_pipeline_inlet_filter,
-    process_pipeline_outlet_filter,
-)
-from open_webui.routers.memories import query_memory, QueryMemoryForm
 
 from open_webui.utils.webhook import post_webhook
 from open_webui.utils.files import (
@@ -70,8 +55,6 @@ from open_webui.utils.files import (
 from open_webui.models.users import UserModel
 from open_webui.models.functions import Functions
 from open_webui.models.models import Models
-
-from open_webui.retrieval.utils import get_sources_from_items
 
 
 from open_webui.utils.sanitize import sanitize_code
@@ -1473,6 +1456,8 @@ async def chat_completion_tools_handler(
 
 async def chat_memory_handler(request: Request, form_data: dict, extra_params: dict, user):
     try:
+        from open_webui.routers.memories import QueryMemoryForm, query_memory
+
         results = await query_memory(
             request,
             QueryMemoryForm(
@@ -1588,6 +1573,8 @@ async def chat_web_search_handler(request: Request, form_data: dict, extra_param
     )
 
     try:
+        from open_webui.routers.retrieval import SearchForm, process_web_search
+
         results = await process_web_search(
             request,
             SearchForm(queries=queries),
@@ -1798,6 +1785,8 @@ async def chat_image_generation_handler(request: Request, form_data: dict, extra
     if len(input_images) > 0 and request.app.state.config.ENABLE_IMAGE_EDIT:
         # Edit image(s)
         try:
+            from open_webui.routers.images import EditImageForm, image_edits
+
             images = await image_edits(
                 request=request,
                 form_data=EditImageForm(**{'prompt': prompt, 'image': input_images}),
@@ -1887,6 +1876,8 @@ async def chat_image_generation_handler(request: Request, form_data: dict, extra
                 prompt = user_message
 
         try:
+            from open_webui.routers.images import CreateImageForm, image_generations
+
             images = await image_generations(
                 request=request,
                 form_data=CreateImageForm(**{'prompt': prompt}),
@@ -2004,6 +1995,8 @@ async def chat_completion_files_handler(
             queries = [get_last_user_message(body['messages']) or '']
 
         try:
+            from open_webui.retrieval.utils import get_sources_from_items
+
             # Directly await async get_sources_from_items (no thread needed - fully async now)
             sources = await get_sources_from_items(
                 request=request,
@@ -2467,6 +2460,8 @@ async def process_chat_payload(request, form_data, user, metadata, model):
 
     # Process the form_data through the pipeline
     try:
+        from open_webui.routers.pipelines import process_pipeline_inlet_filter
+
         form_data = await process_pipeline_inlet_filter(request, form_data, user, models)
     except Exception as e:
         raise e
@@ -3345,6 +3340,8 @@ async def outlet_filter_handler(ctx):
         # Pipeline outlet filters
         models = request.app.state.MODELS
         try:
+            from open_webui.routers.pipelines import process_pipeline_outlet_filter
+
             outlet_data = await process_pipeline_outlet_filter(request, outlet_data, user, models)
         except Exception as e:
             log.debug(f'Pipeline outlet filter error: {e}')

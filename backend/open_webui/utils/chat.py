@@ -31,10 +31,11 @@ from open_webui.routers.ollama import (
     generate_chat_completion as generate_ollama_chat_completion,
 )
 
-from open_webui.routers.pipelines import (
-    process_pipeline_inlet_filter,
-    process_pipeline_outlet_filter,
-)
+def process_pipeline_inlet_filter(*args, **kwargs):
+    return None
+
+def process_pipeline_outlet_filter(*args, **kwargs):
+    return None
 
 from open_webui.models.functions import Functions
 from open_webui.models.models import Models

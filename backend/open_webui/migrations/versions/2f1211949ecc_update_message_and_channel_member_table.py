@@ -57,7 +57,7 @@ def upgrade() -> None:
     op.add_column('channel_member', sa.Column('data', sa.JSON(), nullable=True))
     op.add_column('channel_member', sa.Column('meta', sa.JSON(), nullable=True))
 
-    op.add_column('channel_member', sa.Column('joined_at', sa.BigInteger(), nullable=False))
+    op.add_column('channel_member', sa.Column('joined_at', sa.BigInteger(), nullable=True))
     op.add_column('channel_member', sa.Column('left_at', sa.BigInteger(), nullable=True))
 
     op.add_column('channel_member', sa.Column('last_read_at', sa.BigInteger(), nullable=True))

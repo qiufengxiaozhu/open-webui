@@ -1,4 +1,3 @@
-import black
 import logging
 import markdown
 
@@ -11,7 +10,6 @@ from starlette.responses import FileResponse
 
 
 from open_webui.utils.misc import get_gravatar_url
-from open_webui.utils.pdf_generator import PDFGenerator
 from open_webui.utils.auth import get_admin_user, get_verified_user
 from open_webui.utils.code_interpreter import execute_code_jupyter
 
@@ -31,6 +29,8 @@ class CodeForm(BaseModel):
 
 @router.post('/code/format')
 async def format_code(form_data: CodeForm, user=Depends(get_admin_user)):
+    import black
+
     try:
         formatted_code = black.format_str(form_data.code, mode=black.Mode())
         return {'code': formatted_code}
@@ -90,6 +90,8 @@ class ChatForm(BaseModel):
 @router.post('/pdf')
 async def download_chat_as_pdf(form_data: ChatTitleMessagesForm, user=Depends(get_verified_user)):
     try:
+        from open_webui.utils.pdf_generator import PDFGenerator
+
         pdf_bytes = PDFGenerator(form_data).generate_chat_pdf()
 
         return Response(

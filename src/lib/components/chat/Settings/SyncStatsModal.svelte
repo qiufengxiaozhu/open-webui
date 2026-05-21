@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Confetti } from 'svelte-confetti';
 	import { toast } from 'svelte-sonner';
 	import { getContext, onMount, onDestroy, tick } from 'svelte';
 
@@ -323,9 +322,7 @@
 					{$i18n.t('Your usage stats have been successfully synced.')}
 				</div>
 
-				<Confetti x={[-0.5, 0.5]} y={[0.25, 1]} />
-
-				<div class="flex justify-end">
+					<div class="flex justify-end">
 					<button
 						class="flex items-center justify-center gap-2 rounded-full bg-black px-4 py-2 text-sm text-white transition hover:bg-gray-900 dark:bg-white dark:text-black dark:hover:bg-gray-100"
 						on:click={closeModal}

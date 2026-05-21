@@ -1,0 +1,88 @@
+# Web framework core
+fastapi==0.135.1
+uvicorn[standard]==0.41.0
+pydantic==2.12.5
+python-multipart==0.0.22
+starlette-compress==1.7.0
+Brotli==1.2.0
+brotlicffi==1.2.0.1
+itsdangerous==2.2.0
+
+# Auth / security
+PyJWT[crypto]==2.11.0
+bcrypt==5.0.0
+argon2-cffi==25.1.0
+argon2-cffi-bindings
+authlib==1.6.10
+python-jose==3.5.0
+cryptography==46.0.5
+passlib[bcrypt]
+
+# Database
+sqlalchemy[asyncio]==2.0.48
+aiosqlite==0.21.0
+alembic==1.18.4
+peewee==3.19.0
+peewee-migrate==1.14.3
+
+# HTTP client
+aiohttp==3.13.5 # do not update to 3.13.3 - broken
+httpx[socks,http2,zstd,cli,brotli]==0.28.1
+requests==2.33.1
+async-timeout==5.0.1
+aiofiles==25.1.0
+aiocache==0.12.3
+
+# Real-time communication
+python-socketio==5.16.1
+
+# AI / Token
+openai==2.29.0
+tiktoken==0.12.0
+
+# Tool execution / sandbox
+RestrictedPython==8.1
+
+# Scheduling
+APScheduler==3.11.2
+
+# Cache / Session
+redis==7.4.0
+starsessions[redis]==2.2.1
+
+# Logging
+loguru==0.7.3
+
+# File handling basics
+pillow==12.1.1
+python-dotenv
+
+# Other utilities
+pytz==2026.1.post1
+validators==0.35.0
+pydantic-settings
+python-mimeparse==2.0.0
+asgiref==3.11.1
+psutil==7.2.2
+ddgs==9.11.3
+
+# YAML / JSON
+pyyaml
+
+# Templates
+jinja2
+
+# Markdown processing
+Markdown==3.10.2
+pymdown-extensions==10.21
+beautifulsoup4==4.14.3
+
+# Encoding fixes
+ftfy==6.3.1
+chardet==5.2.0
+
+# Misc utilities
+fake-useragent==2.2.0
+lxml
+deprecated
+shortuuid

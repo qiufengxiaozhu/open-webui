@@ -1,7 +1,10 @@
-from open_webui.routers.images import (
-    get_image_data,
-    upload_image,
-)
+import asyncio
+import mimetypes
+import base64
+import io
+import re
+from typing import Optional
+from pathlib import Path
 
 from fastapi import (
     APIRouter,
@@ -10,21 +13,9 @@ from fastapi import (
     Request,
     UploadFile,
 )
-from typing import Optional
-from pathlib import Path
-
-from open_webui.storage.provider import Storage
 
 from open_webui.models.chats import Chats
 from open_webui.models.files import Files
-from open_webui.routers.files import upload_file_handler
-from open_webui.retrieval.web.utils import validate_url
-
-import asyncio
-import mimetypes
-import base64
-import io
-import re
 
 from open_webui.env import (
     AIOHTTP_CLIENT_ALLOW_REDIRECTS,
@@ -35,6 +26,16 @@ from open_webui.utils.session_pool import get_session
 
 BASE64_IMAGE_URL_PREFIX = re.compile(r'data:image/\w+;base64,', re.IGNORECASE)
 MARKDOWN_IMAGE_URL_PATTERN = re.compile(r'!\[(.*?)\]\((.+?)\)', re.IGNORECASE)
+
+
+def validate_url(url: str) -> str:
+    """Simple URL validation stub to avoid retrieval dependency."""
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError(f'Invalid URL: {url}')
+    return url
 
 # Extension-based MIME fallback, only used when ENABLE_IMAGE_CONTENT_TYPE_EXTENSION_FALLBACK is True.
 _IMAGE_MIME_FALLBACK = {
@@ -79,6 +80,8 @@ async def get_image_base64_from_url(url: str) -> Optional[str]:
             if not file:
                 return None
 
+            from open_webui.storage.provider import Storage
+
             file_path = await asyncio.to_thread(Storage.get_file, file.path)
             file_path = Path(file_path)
 
@@ -100,6 +103,8 @@ async def get_image_base64_from_url(url: str) -> Optional[str]:
 
 async def get_image_url_from_base64(request, base64_image_string, metadata, user):
     if BASE64_IMAGE_URL_PREFIX.match(base64_image_string):
+        from open_webui.routers.images import get_image_data, upload_image
+
         image_url = ''
         # Extract base64 image data from the line
         image_data, content_type = await get_image_data(base64_image_string)
@@ -162,6 +167,8 @@ async def upload_audio(request, audio_data, content_type, metadata, user):
             'content-type': content_type,
         },
     )
+    from open_webui.routers.files import upload_file_handler
+
     file_item = await upload_file_handler(
         request,
         file=file,
@@ -204,6 +211,8 @@ async def get_image_base64_from_file_id(id: str) -> Optional[str]:
         return None
 
     try:
+        from open_webui.storage.provider import Storage
+
         file_path = await asyncio.to_thread(Storage.get_file, file.path)
         file_path = Path(file_path)
 

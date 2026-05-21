@@ -1,15 +1,7 @@
 <script lang="ts">
-	import { getContext, onDestroy, tick } from 'svelte';
+	import { getContext, tick } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
-
-	import { basicSetup, EditorView } from 'codemirror';
-	import { keymap } from '@codemirror/view';
-	import { Compartment, EditorState } from '@codemirror/state';
-	import { json } from '@codemirror/lang-json';
-	import { indentWithTab } from '@codemirror/commands';
-	import { indentUnit } from '@codemirror/language';
-	import { oneDark } from '@codemirror/theme-one-dark';
 
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
@@ -21,71 +13,38 @@
 	let viewMode: 'visual' | 'json' = 'visual';
 	let jsonError = '';
 
-	// --- CodeMirror ---
-	let cmContainer: HTMLDivElement;
-	let cmEditor: EditorView | null = null;
-	let editorTheme = new Compartment();
+	// --- JSON textarea editor ---
+	let jsonText = '';
 
-	function initCodeMirror() {
-		if (cmEditor || !cmContainer) return;
-		const isDark = document.documentElement.classList.contains('dark');
-		cmEditor = new EditorView({
-			state: EditorState.create({
-				doc: JSON.stringify(output, null, 2),
-				extensions: [
-					basicSetup,
-					keymap.of([indentWithTab]),
-					indentUnit.of('  '),
-					json(),
-					editorTheme.of(isDark ? oneDark : []),
-					EditorView.theme({
-						'&': { fontSize: '13px' },
-						'.cm-content': { fontFamily: 'ui-monospace, monospace' },
-						'.cm-scroller': { maxHeight: '320px', overflow: 'auto' },
-						'&.cm-focused': { outline: 'none' }
-					}),
-					EditorView.updateListener.of((e) => {
-						if (e.docChanged) {
-							try {
-								const parsed = JSON.parse(e.state.doc.toString());
-								if (Array.isArray(parsed)) {
-									jsonError = '';
-									output = parsed;
-									onChange(output);
-								} else {
-									jsonError = 'Must be a JSON array';
-								}
-							} catch {
-								jsonError = 'Invalid JSON';
-							}
-						}
-					})
-				]
-			}),
-			parent: cmContainer
-		});
-	}
+	function handleJsonInput(event: Event) {
+		const text = (event.target as HTMLTextAreaElement).value;
+		jsonText = text;
 
-	function destroyCodeMirror() {
-		if (cmEditor) {
-			cmEditor.destroy();
-			cmEditor = null;
+		try {
+			const parsed = JSON.parse(text);
+			if (Array.isArray(parsed)) {
+				jsonError = '';
+				output = parsed;
+				onChange(output);
+			} else {
+				jsonError = 'Must be a JSON array';
+			}
+		} catch {
+			jsonError = 'Invalid JSON';
 		}
 	}
 
 	async function switchToJson() {
+		jsonText = JSON.stringify(output, null, 2);
+		jsonError = '';
 		viewMode = 'json';
 		await tick();
-		initCodeMirror();
 	}
 
 	function switchToVisual() {
 		if (jsonError) return;
-		destroyCodeMirror();
 		viewMode = 'visual';
 	}
-
-	onDestroy(() => destroyCodeMirror());
 
 	// --- Display items ---
 
@@ -244,9 +203,11 @@
 	</div>
 
 	{#if viewMode === 'json'}
-		<div
-			bind:this={cmContainer}
-			class="w-full rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800"
+		<textarea
+			class="w-full min-h-[320px] max-h-[320px] overflow-auto rounded-2xl border border-gray-100 bg-transparent p-3 font-mono text-[13px] outline-none dark:border-gray-800"
+			value={jsonText}
+			on:input={handleJsonInput}
+			spellcheck="false"
 		/>
 		{#if jsonError}
 			<div class="text-xs text-red-500 mt-1.5 px-1">{jsonError}</div>

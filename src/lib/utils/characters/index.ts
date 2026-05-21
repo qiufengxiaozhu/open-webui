@@ -1,4 +1,24 @@
-import CRC32 from 'crc-32';
+const crc32Table = (() => {
+	const table = new Uint32Array(256);
+	for (let i = 0; i < 256; i++) {
+		let c = i;
+		for (let j = 0; j < 8; j++) {
+			c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+		}
+		table[i] = c;
+	}
+	return table;
+})();
+
+const crc32Buf = (data: Uint8Array, seed = 0): number => {
+	let crc = seed ^ 0xffffffff;
+	for (let i = 0; i < data.length; i++) {
+		crc = crc32Table[(crc ^ data[i]) & 0xff] ^ (crc >>> 8);
+	}
+	return (crc ^ 0xffffffff) | 0;
+};
+
+const crc32Str = (str: string): number => crc32Buf(new TextEncoder().encode(str));
 
 export const parseFile = async (file) => {
 	if (file.type === 'application/json') {
@@ -88,7 +108,7 @@ const readPngChunks = (data) => {
 			(data[offset + 8 + length + 2] << 8) |
 			data[offset + 8 + length + 3];
 
-		if (CRC32.buf(chunkData, CRC32.str(type)) !== crc) {
+		if (crc32Buf(chunkData, crc32Str(type)) !== crc) {
 			throw new Error(`Invalid CRC for chunk type "${type}"`);
 		}
 

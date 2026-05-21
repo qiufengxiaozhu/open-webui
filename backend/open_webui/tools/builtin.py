@@ -15,29 +15,12 @@ from typing import Optional
 from fastapi import Request
 
 from open_webui.models.users import UserModel
-from open_webui.routers.retrieval import search_web as _search_web
-from open_webui.retrieval.utils import get_content_from_url
-from open_webui.routers.images import (
-    image_generations,
-    image_edits,
-    CreateImageForm,
-    EditImageForm,
-)
-from open_webui.routers.memories import (
-    query_memory,
-    add_memory as _add_memory,
-    update_memory_by_id,
-    QueryMemoryForm,
-    AddMemoryForm,
-    MemoryUpdateModel,
-)
 from open_webui.models.notes import Notes
 from open_webui.models.chats import Chats
 from open_webui.models.channels import Channels, ChannelMember, Channel
 from open_webui.models.messages import Messages, Message
 from open_webui.models.groups import Groups
 from open_webui.models.memories import Memories
-from open_webui.retrieval.vector.async_client import ASYNC_VECTOR_DB_CLIENT
 from open_webui.utils.sanitize import sanitize_code
 
 log = logging.getLogger(__name__)
@@ -206,6 +189,8 @@ async def search_web(
         max_count = 5 if configured is None else configured
         count = max(1, min(count, max_count)) if count is not None else max_count
 
+        from open_webui.routers.retrieval import search_web as _search_web
+
         results = await asyncio.to_thread(_search_web, __request__, engine, query, user)
 
         # Limit results
@@ -235,6 +220,8 @@ async def fetch_url(
         return json.dumps({'error': 'Request context not available'})
 
     try:
+        from open_webui.retrieval.utils import get_content_from_url
+
         content, _ = await asyncio.to_thread(get_content_from_url, __request__, url)
 
         # Truncate if configured (WEB_FETCH_MAX_CONTENT_LENGTH)
@@ -275,6 +262,8 @@ async def generate_image(
         return json.dumps({'error': 'Request context not available'})
 
     try:
+        from open_webui.routers.images import CreateImageForm, image_generations
+
         user = UserModel(**__user__) if __user__ else None
 
         images = await image_generations(
@@ -342,6 +331,8 @@ async def edit_image(
         return json.dumps({'error': 'Request context not available'})
 
     try:
+        from open_webui.routers.images import EditImageForm, image_edits
+
         user = UserModel(**__user__) if __user__ else None
 
         images = await image_edits(
@@ -584,6 +575,8 @@ async def search_memories(
         return json.dumps({'error': 'Request context not available'})
 
     try:
+        from open_webui.routers.memories import QueryMemoryForm, query_memory
+
         user = UserModel(**__user__) if __user__ else None
 
         results = await query_memory(
@@ -628,6 +621,8 @@ async def add_memory(
         return json.dumps({'error': 'Request context not available'})
 
     try:
+        from open_webui.routers.memories import AddMemoryForm, add_memory as _add_memory
+
         user = UserModel(**__user__) if __user__ else None
 
         memory = await _add_memory(
@@ -659,6 +654,8 @@ async def replace_memory_content(
         return json.dumps({'error': 'Request context not available'})
 
     try:
+        from open_webui.routers.memories import MemoryUpdateModel, update_memory_by_id
+
         user = UserModel(**__user__) if __user__ else None
 
         memory = await update_memory_by_id(
@@ -697,6 +694,8 @@ async def delete_memory(
         result = await Memories.delete_memory_by_id_and_user_id(memory_id, user.id)
 
         if result:
+            from open_webui.retrieval.vector.async_client import ASYNC_VECTOR_DB_CLIENT
+
             await ASYNC_VECTOR_DB_CLIENT.delete(collection_name=f'user-memory-{user.id}', ids=[memory_id])
             return json.dumps(
                 {'status': 'success', 'message': f'Memory {memory_id} deleted'},

@@ -85,9 +85,6 @@ from typing import Optional, List
 
 from ssl import CERT_NONE, CERT_REQUIRED, PROTOCOL_TLS
 
-from ldap3 import Server, Connection, NONE, Tls
-from ldap3.utils.conv import escape_filter_chars
-
 router = APIRouter()
 
 log = logging.getLogger(__name__)
@@ -339,6 +336,9 @@ async def ldap_auth(
     # which would grant access without valid credentials.
     if not form_data.password or not form_data.password.strip():
         raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_CRED)
+
+    from ldap3 import Connection, NONE, Server, Tls
+    from ldap3.utils.conv import escape_filter_chars
 
     # NOW load LDAP config variables
     LDAP_SERVER_LABEL = request.app.state.config.LDAP_SERVER_LABEL

@@ -6,9 +6,6 @@ import re
 from abc import ABC, abstractmethod
 from typing import BinaryIO, Tuple, Dict
 
-import boto3
-from botocore.config import Config
-from botocore.exceptions import ClientError
 from open_webui.config import (
     S3_ACCESS_KEY_ID,
     S3_BUCKET_NAME,
@@ -27,12 +24,7 @@ from open_webui.config import (
     STORAGE_PROVIDER,
     UPLOAD_DIR,
 )
-from google.cloud import storage
-from google.cloud.exceptions import GoogleCloudError, NotFound
 from open_webui.constants import ERROR_MESSAGES
-from azure.identity import DefaultAzureCredential
-from azure.storage.blob import BlobServiceClient
-from azure.core.exceptions import ResourceNotFoundError
 
 log = logging.getLogger(__name__)
 
@@ -100,6 +92,9 @@ class LocalStorageProvider(StorageProvider):
 
 class S3StorageProvider(StorageProvider):
     def __init__(self):
+        import boto3
+        from botocore.config import Config
+
         config = Config(
             s3={
                 'use_accelerate_endpoint': S3_USE_ACCELERATE_ENDPOINT,
@@ -140,6 +135,8 @@ class S3StorageProvider(StorageProvider):
 
     def upload_file(self, file: BinaryIO, filename: str, tags: Dict[str, str]) -> Tuple[bytes, str]:
         """Handles uploading of the file to S3 storage."""
+        from botocore.exceptions import ClientError
+
         contents, file_path = LocalStorageProvider.upload_file(file, filename, tags)
         s3_key = os.path.join(self.key_prefix, filename)
         try:
@@ -161,6 +158,8 @@ class S3StorageProvider(StorageProvider):
 
     def get_file(self, file_path: str) -> str:
         """Handles downloading of the file from S3 storage."""
+        from botocore.exceptions import ClientError
+
         try:
             s3_key = self._extract_s3_key(file_path)
             local_file_path = self._get_local_file_path(s3_key)
@@ -171,6 +170,8 @@ class S3StorageProvider(StorageProvider):
 
     def delete_file(self, file_path: str) -> None:
         """Handles deletion of the file from S3 storage."""
+        from botocore.exceptions import ClientError
+
         try:
             s3_key = self._extract_s3_key(file_path)
             self.s3_client.delete_object(Bucket=self.bucket_name, Key=s3_key)
@@ -182,6 +183,8 @@ class S3StorageProvider(StorageProvider):
 
     def delete_all_files(self) -> None:
         """Handles deletion of all files from S3 storage."""
+        from botocore.exceptions import ClientError
+
         try:
             response = self.s3_client.list_objects_v2(Bucket=self.bucket_name)
             if 'Contents' in response:
@@ -207,6 +210,8 @@ class S3StorageProvider(StorageProvider):
 
 class GCSStorageProvider(StorageProvider):
     def __init__(self):
+        from google.cloud import storage
+
         self.bucket_name = GCS_BUCKET_NAME
 
         if GOOGLE_APPLICATION_CREDENTIALS_JSON:
@@ -222,6 +227,8 @@ class GCSStorageProvider(StorageProvider):
 
     def upload_file(self, file: BinaryIO, filename: str, tags: Dict[str, str]) -> Tuple[bytes, str]:
         """Handles uploading of the file to GCS storage."""
+        from google.cloud.exceptions import GoogleCloudError
+
         contents, file_path = LocalStorageProvider.upload_file(file, filename, tags)
         try:
             blob = self.bucket.blob(filename)
@@ -232,6 +239,8 @@ class GCSStorageProvider(StorageProvider):
 
     def get_file(self, file_path: str) -> str:
         """Handles downloading of the file from GCS storage."""
+        from google.cloud.exceptions import NotFound
+
         try:
             filename = file_path.removeprefix('gs://').split('/')[1]
             local_file_path = os.path.join(UPLOAD_DIR, filename)
@@ -244,6 +253,8 @@ class GCSStorageProvider(StorageProvider):
 
     def delete_file(self, file_path: str) -> None:
         """Handles deletion of the file from GCS storage."""
+        from google.cloud.exceptions import NotFound
+
         try:
             filename = file_path.removeprefix('gs://').split('/')[1]
             blob = self.bucket.get_blob(filename)
@@ -256,6 +267,8 @@ class GCSStorageProvider(StorageProvider):
 
     def delete_all_files(self) -> None:
         """Handles deletion of all files from GCS storage."""
+        from google.cloud.exceptions import NotFound
+
         try:
             blobs = self.bucket.list_blobs()
 
@@ -271,6 +284,9 @@ class GCSStorageProvider(StorageProvider):
 
 class AzureStorageProvider(StorageProvider):
     def __init__(self):
+        from azure.identity import DefaultAzureCredential
+        from azure.storage.blob import BlobServiceClient
+
         self.endpoint = AZURE_STORAGE_ENDPOINT
         self.container_name = AZURE_STORAGE_CONTAINER_NAME
         storage_key = AZURE_STORAGE_KEY
@@ -296,6 +312,8 @@ class AzureStorageProvider(StorageProvider):
 
     def get_file(self, file_path: str) -> str:
         """Handles downloading of the file from Azure Blob Storage."""
+        from azure.core.exceptions import ResourceNotFoundError
+
         try:
             filename = file_path.split('/')[-1]
             local_file_path = os.path.join(UPLOAD_DIR, filename)
@@ -308,6 +326,8 @@ class AzureStorageProvider(StorageProvider):
 
     def delete_file(self, file_path: str) -> None:
         """Handles deletion of the file from Azure Blob Storage."""
+        from azure.core.exceptions import ResourceNotFoundError
+
         try:
             filename = file_path.split('/')[-1]
             blob_client = self.container_client.get_blob_client(filename)

@@ -2320,7 +2320,7 @@ CODE_INTERPRETER_PYODIDE_PROMPT = """
 # Vector Database
 ####################################
 
-VECTOR_DB = os.environ.get('VECTOR_DB', 'chroma')
+VECTOR_DB = os.environ.get('VECTOR_DB', '')
 
 # Chroma
 CHROMA_DATA_PATH = f'{DATA_DIR}/vector_db'

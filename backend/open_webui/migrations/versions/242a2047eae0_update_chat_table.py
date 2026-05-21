@@ -34,7 +34,8 @@ def upgrade():
 
             if old_chat_exists:
                 print("Dropping old 'old_chat' column")
-                op.drop_column('chat', 'old_chat')
+                with op.batch_alter_table('chat') as batch_op:
+                    batch_op.drop_column('old_chat')
 
             # Step 1: Rename current 'chat' column to 'old_chat'
             print("Renaming 'chat' column to 'old_chat'")
@@ -69,7 +70,8 @@ def upgrade():
 
     # Step 4: Drop 'old_chat' column
     print("Dropping 'old_chat' column")
-    op.drop_column('chat', 'old_chat')
+    with op.batch_alter_table('chat') as batch_op:
+        batch_op.drop_column('old_chat')
 
 
 def downgrade():

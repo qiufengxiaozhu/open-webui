@@ -17,7 +17,6 @@
 	import Messages from '../chat/Messages.svelte';
 	import { goto } from '$app/navigation';
 	import PencilSquare from '../icons/PencilSquare.svelte';
-	import PageEdit from '../icons/PageEdit.svelte';
 	dayjs.extend(calendar);
 	dayjs.extend(localizedFormat);
 
@@ -227,24 +226,6 @@
 	};
 
 	onMount(() => {
-		actions = [
-			...actions,
-			...(($config?.features?.enable_notes ?? false) &&
-			($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))
-				? [
-						{
-							label: $i18n.t('Create a new note'),
-							onClick: async () => {
-								await goto(`/notes?content=${query}`);
-								show = false;
-								onClose();
-							},
-							icon: PageEdit
-						}
-					]
-				: [])
-		];
-
 		document.addEventListener('keydown', onKeyDown);
 	});
 

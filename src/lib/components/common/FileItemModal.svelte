@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { WorkBook } from 'xlsx';
 	import DOMPurify from 'dompurify';
 
 	import { getContext, onMount, tick } from 'svelte';
@@ -43,7 +42,7 @@
 	let isPptx = false;
 
 	let selectedTab = '';
-	let excelWorkbook: WorkBook | null = null;
+	let excelWorkbook: { SheetNames: string[]; Sheets: Record<string, unknown> } | null = null;
 	let excelSheetNames: string[] = [];
 	let selectedSheet = '';
 	let excelHtml = '';
@@ -137,23 +136,7 @@
 		(item?.name && item.name.toLowerCase().endsWith('.pptx'));
 
 	const loadExcelContent = async () => {
-		try {
-			excelError = '';
-			const [arrayBuffer, { read }] = await Promise.all([
-				getFileContentById(item.id),
-				import('xlsx')
-			]);
-			excelWorkbook = read(arrayBuffer, { type: 'array' });
-			excelSheetNames = excelWorkbook.SheetNames;
-
-			if (excelSheetNames.length > 0) {
-				selectedSheet = excelSheetNames[0];
-				await renderExcelSheet();
-			}
-		} catch (error) {
-			console.error('Error loading Excel/CSV file:', error);
-			excelError = $i18n.t('Failed to load Excel/CSV file. Please try downloading it instead.');
-		}
+		excelError = $i18n.t('Excel preview is not available on this platform.');
 	};
 
 	const renderExcelSheet = async () => {
@@ -170,34 +153,11 @@
 	}
 
 	const loadDocxContent = async () => {
-		try {
-			docxError = '';
-			const [arrayBuffer, mammoth] = await Promise.all([
-				getFileContentById(item.id),
-				import('mammoth')
-			]);
-			const result = await mammoth.convertToHtml({ arrayBuffer });
-			docxHtml = DOMPurify.sanitize(result.value);
-		} catch (error) {
-			console.error('Error loading DOCX file:', error);
-			docxError = $i18n.t('Failed to load DOCX file. Please try downloading it instead.');
-		}
+		docxError = $i18n.t('DOCX preview is not available on this platform.');
 	};
 
 	const loadPptxContent = async () => {
-		try {
-			pptxError = '';
-			const [arrayBuffer, { pptxToImages }] = await Promise.all([
-				getFileContentById(item.id),
-				import('$lib/utils/pptxToHtml')
-			]);
-			const result = await pptxToImages(arrayBuffer);
-			pptxSlides = result.images;
-			pptxCurrentSlide = 0;
-		} catch (error) {
-			console.error('Error loading PPTX file:', error);
-			pptxError = $i18n.t('Failed to load PPTX file. Please try downloading it instead.');
-		}
+		pptxError = $i18n.t('PPTX preview is not available on this platform.');
 	};
 
 	const loadContent = async () => {

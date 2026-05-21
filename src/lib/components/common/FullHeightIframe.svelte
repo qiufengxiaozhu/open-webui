@@ -88,33 +88,16 @@
 		// --- Alpine.js detection & injection ---
 		const hasAlpineDirectives = alpineDirectives.some((dir) => html.includes(dir));
 		if (hasAlpineDirectives) {
-			try {
-				const { default: alpineCode } = await import('alpinejs/dist/cdn.min.js?raw');
-				const alpineBlob = new Blob([alpineCode], { type: 'text/javascript' });
-				const alpineUrl = URL.createObjectURL(alpineBlob);
-				const alpineTag = `<script src="${alpineUrl}" defer><\/script>`;
-				scriptTags.push(alpineTag);
-			} catch (error) {
-				console.error('Error processing Alpine for iframe:', error);
-			}
+			// Alpine.js is not available on this platform
+			console.warn('Alpine.js is not available on this platform');
 		}
 
 		// --- Chart.js detection & injection ---
 		const chartJsDirectives = ['new Chart(', 'Chart.'];
 		const hasChartJsDirectives = chartJsDirectives.some((dir) => html.includes(dir));
 		if (hasChartJsDirectives) {
-			try {
-				// import chartUrl from 'chart.js/auto?url';
-				const { default: Chart } = await import('chart.js/auto');
-				(window as any).Chart = Chart;
-
-				const chartTag = `<script>
-window.Chart = parent.Chart; // Chart previously assigned on parent
-<\/script>`;
-				scriptTags.push(chartTag);
-			} catch (error) {
-				console.error('Error processing Chart.js for iframe:', error);
-			}
+			// Chart.js is not available on this platform
+			console.warn('Chart.js is not available on this platform');
 		}
 
 		// If nothing to inject, return original HTML

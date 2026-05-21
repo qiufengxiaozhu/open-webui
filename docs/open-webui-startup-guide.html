@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Open WebUI 本地启动操作手册</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+:root {
+  --bg:#f8f9fa; --card:#fff; --border:#e2e8f0;
+  --tx:#1a202c; --tx2:#4a5568; --tx3:#718096;
+  --ac:#0891b2; --ac-l:#ecfeff;
+  --gn:#16a34a; --gn-l:#f0fdf4;
+  --or:#ea580c; --or-l:#fff7ed;
+  --rd:#dc2626; --rd-l:#fef2f2;
+  --pu:#7c3aed; --pu-l:#f5f3ff;
+  --tl:#0d9488; --tl-l:#f0fdfa;
+  --cb:#1e293b; --ct:#e2e8f0;
+  --sh:0 1px 3px rgba(0,0,0,.08);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:15px;line-height:1.75;color:var(--tx);background:var(--bg)}
+.c{max-width:1500px;margin:0 auto;padding:24px 32px}
+a{color:var(--ac);text-decoration:none}a:hover{text-decoration:underline}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,#0891b2 0%,#06b6d4 30%,#22d3ee 60%,#67e8f9 100%);color:#fff;padding:48px 40px;border-radius:16px;margin-bottom:32px;box-shadow:0 8px 32px rgba(8,145,178,.25);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-50%;right:-30%;width:60%;height:200%;background:radial-gradient(circle,rgba(255,255,255,.08) 0%,transparent 70%);pointer-events:none}
+.hero h1{font-size:28px;font-weight:700;margin-bottom:8px;position:relative}
+.hero p{font-size:16px;opacity:.92;position:relative}
+.hero .version{display:inline-block;background:rgba(255,255,255,.2);padding:2px 12px;border-radius:20px;font-size:13px;margin-left:12px;vertical-align:middle}
+
+/* Section cards */
+.s{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px;margin-bottom:24px;box-shadow:var(--sh)}
+.s h2{font-size:20px;font-weight:700;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--ac);display:flex;align-items:center;gap:8px}
+.s h3{font-size:16px;font-weight:600;margin:20px 0 10px;padding-left:12px;border-left:3px solid var(--ac)}
+.s h4{font-size:14px;font-weight:600;margin:14px 0 8px;color:var(--tx2)}
+.s p,.s li{color:var(--tx2)}
+.s ul,.s ol{padding-left:20px}
+.s li{margin-bottom:4px}
+
+/* Tables */
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0}
+th{background:#f1f5f9;font-weight:600;text-align:left;padding:10px 14px;border:1px solid var(--border)}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:#f8fafc}
+
+/* Code */
+pre{background:var(--cb);color:var(--ct);padding:16px 20px;border-radius:8px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.6;margin:12px 0;position:relative}
+code{font-family:'JetBrains Mono',monospace;font-size:13px}
+:not(pre)>code{background:#f1f5f9;color:#d63384;padding:2px 6px;border-radius:4px}
+
+/* Tags */
+.tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:500;margin:0 2px}
+.tag-green{background:var(--gn-l);color:var(--gn)}
+.tag-orange{background:var(--or-l);color:var(--or)}
+.tag-red{background:var(--rd-l);color:var(--rd)}
+.tag-blue{background:var(--ac-l);color:var(--ac)}
+.tag-purple{background:var(--pu-l);color:var(--pu)}
+.tag-teal{background:var(--tl-l);color:var(--tl)}
+
+/* Badges */
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;text-transform:uppercase;vertical-align:middle;margin-left:6px}
+.badge-rec{background:var(--gn-l);color:var(--gn)}
+.badge-alt{background:#fef9c3;color:#a16207}
+.badge-new{background:var(--ac-l);color:var(--ac)}
+.badge-no{background:var(--rd-l);color:var(--rd)}
+
+/* Callouts */
+.co{padding:14px 18px;border-radius:8px;margin:12px 0;border-left:4px solid}
+.co-i{background:var(--ac-l);border-color:var(--ac)}
+.co-w{background:var(--or-l);border-color:var(--or)}
+.co-t{background:var(--gn-l);border-color:var(--gn)}
+.co-d{background:var(--rd-l);border-color:var(--rd)}
+.co strong{display:block;margin-bottom:4px}
+
+/* File reference */
+.fr{background:#f1f5f9;padding:6px 12px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--tx3);margin:6px 0;display:inline-block}
+.fr::before{content:'📄 '}
+
+/* Step numbers */
+.step{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--ac);color:#fff;font-weight:700;font-size:14px;margin-right:8px;flex-shrink:0}
+.step-row{display:flex;align-items:flex-start;margin:12px 0}
+.step-row .step-content{flex:1}
+
+/* Mermaid */
+.mw{position:relative;overflow:hidden;background:#fff !important;padding:16px;border-radius:8px;margin:16px 0;border:1px solid var(--border);text-align:center}
+.mw pre{background:#fff !important}
+.mw svg{background:#fff !important}
+.mw .node rect,.mw .node polygon,.mw .node circle{fill:#fff !important}
+.mw .cluster rect{fill:#f8fafc !important;stroke:var(--border) !important}
+.mw .nodeLabel,.mw .edgeLabel,.mw .label{color:#1a202c !important;fill:#1a202c !important}
+.mw .edgePath .path{stroke:#64748b !important}
+.mw .actor{fill:#dbeafe !important;stroke:#2563eb !important}
+.mw .messageLine0,.mw .messageLine1{stroke:#64748b !important}
+.mw .messageText,.mw text.actor-label{fill:#1a202c !important}
+.mw .mw-inner{overflow:auto;width:100%;max-height:600px}
+.mw .mw-toolbar{position:absolute;top:8px;right:8px;display:flex;gap:4px;opacity:0;transition:opacity .2s;z-index:10}
+.mw:hover .mw-toolbar{opacity:1}
+.mw-toolbar button{width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,.08);color:var(--tx3);padding:0}
+.mw-toolbar button:hover{background:var(--ac-l);color:var(--ac);border-color:var(--ac)}
+.mw-toolbar button svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mw-fullscreen{position:fixed !important;top:0;left:0;right:0;bottom:0;width:100% !important;height:100% !important;z-index:9999;margin:0 !important;padding:0 !important;border-radius:0 !important;border:none !important;overflow:hidden !important;display:block !important;background:#fff !important}
+.mw-fullscreen .mw-inner{width:100%;height:100%;overflow:auto !important;max-height:none !important;padding:60px 24px 24px;box-sizing:border-box}
+.mw-fullscreen .mw-toolbar{opacity:1;position:fixed;top:16px;right:16px;z-index:10000}
+
+/* Copy button */
+.copy-btn{position:absolute;top:8px;right:8px;padding:4px 10px;font-size:12px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.1);color:#e2e8f0;cursor:pointer;opacity:0;transition:opacity .2s;z-index:5}
+pre:hover .copy-btn{opacity:1}
+.copy-btn:hover{background:rgba(255,255,255,.2)}
+.copy-btn.copied{background:var(--gn);color:#fff;border-color:var(--gn)}
+
+/* Sidebar */
+#sidebar{position:fixed;top:0;left:0;width:280px;height:100%;background:var(--card);border-right:1px solid var(--border);overflow-y:auto;z-index:100;padding:20px 0;box-shadow:2px 0 8px rgba(0,0,0,.04);transition:transform .3s}
+#sidebar .sidebar-title{padding:0 20px 16px;font-size:15px;font-weight:700;color:var(--tx);border-bottom:1px solid var(--border);margin-bottom:8px}
+#sidebar .toc-h2{display:block;padding:8px 20px;font-size:13px;font-weight:600;color:var(--tx2);cursor:pointer;position:relative;padding-right:28px;text-decoration:none;transition:color .2s,background .2s;border-radius:0}
+#sidebar .toc-h2::after{content:'▸';position:absolute;right:12px;top:50%;transform:translateY(-50%);transition:transform .2s;font-size:11px;color:var(--tx3)}
+#sidebar .toc-h2.expanded::after{transform:translateY(-50%) rotate(90deg)}
+#sidebar .toc-h2:hover{background:var(--ac-l);color:var(--ac)}
+#sidebar .toc-h2.active{color:var(--ac);background:var(--ac-l)}
+#sidebar .toc-group{overflow:hidden;max-height:0;transition:max-height .3s ease}
+#sidebar .toc-group.open{max-height:500px}
+#sidebar .toc-sub{display:block;padding:5px 20px 5px 36px;font-size:12.5px;color:var(--tx3);text-decoration:none;transition:color .2s}
+#sidebar .toc-sub:hover{color:var(--ac)}
+#sidebar .toc-sub.active{color:var(--ac);font-weight:500}
+body.sb-open .c{margin-left:296px}
+body.sb-closed .c{margin-left:auto}
+body.sb-closed #sidebar{transform:translateX(-100%)}
+#sb-float-btn{position:fixed;bottom:24px;left:24px;width:40px;height:40px;border-radius:50%;background:var(--ac);color:#fff;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:101;transition:transform .2s}
+#sb-float-btn:hover{transform:scale(1.1)}
+
+/* Footer */
+.footer{text-align:center;padding:24px 0;color:var(--tx3);font-size:13px}
+
+/* Responsive */
+@media(max-width:900px){
+  body.sb-open .c{margin-left:auto}
+  #sidebar{transform:translateX(-100%)}
+  body.sb-open #sidebar{transform:translateX(0)}
+}
+@media(max-width:700px){
+  .c{padding:16px}
+  .hero{padding:32px 24px}
+  .hero h1{font-size:22px}
+  .s{padding:20px}
+  table{font-size:12px}
+  th,td{padding:8px 10px}
+}
+</style>
+</head>
+<body class="sb-open">
+
+<!-- ========== SIDEBAR START ========== -->
+<div id="sidebar">
+  <div class="sidebar-title">Open WebUI 启动手册</div>
+</div>
+<button id="sb-float-btn" title="切换目录">☰</button>
+<!-- ========== SIDEBAR END ========== -->
+
+<div class="c">
+
+<!-- Hero -->
+<div class="hero">
+  <h1>Open WebUI 本地启动操作手册 <span class="version">v0.9.5</span></h1>
+  <p>涵盖项目架构、环境准备、前后端启动、Docker 部署与常见问题排查的完整指南</p>
+</div>
+
+<!-- 01. 项目概览 -->
+<div class="s" id="s1">
+  <h2>📌 01. 项目概览</h2>
+  <p>Open WebUI 是一个功能丰富的自托管 AI 平台，支持 Ollama 和 OpenAI 兼容 API。项目采用前后端分离架构，生产环境下由后端统一服务。</p>
+
+  <h3>技术栈总览</h3>
+  <table>
+    <tr><th>层次</th><th>技术</th><th>版本</th></tr>
+    <tr><td>前端框架</td><td>Svelte 5 + SvelteKit 2</td><td>最新</td></tr>
+    <tr><td>构建工具</td><td>Vite 5</td><td>^5.4.21</td></tr>
+    <tr><td>CSS 框架</td><td>Tailwind CSS 4 + PostCSS</td><td>^4.0.0</td></tr>
+    <tr><td>后端框架</td><td>FastAPI + Uvicorn</td><td>0.135.1 / 0.41.0</td></tr>
+    <tr><td>ORM</td><td>SQLAlchemy 2.0（同步+异步）</td><td>2.0.48</td></tr>
+    <tr><td>数据库迁移</td><td>Alembic + Peewee-migrate（遗留）</td><td>1.18.4</td></tr>
+    <tr><td>默认数据库</td><td>SQLite（支持 PostgreSQL）</td><td>—</td></tr>
+    <tr><td>实时通信</td><td>Socket.IO（python-socketio）</td><td>5.16.1</td></tr>
+    <tr><td>包管理</td><td>npm（前端）/ uv+pip（后端）</td><td>—</td></tr>
+  </table>
+
+  <h3>项目目录结构</h3>
+  <pre><code>/opt/open-webui/
+├── src/                      # SvelteKit 前端源码
+│   ├── routes/               #   页面路由（chat, admin, workspace...）
+│   └── lib/                  #   组件、API客户端、stores、i18n、utils
+├── backend/                  # Python FastAPI 后端
+│   ├── open_webui/           #   主 Python 包
+│   │   ├── main.py           #     FastAPI 应用入口
+│   │   ├── config.py         #     配置 + 启动迁移
+│   │   ├── env.py            #     环境变量解析
+│   │   ├── routers/          #     API 路由（30+ 模块）
+│   │   ├── models/           #     SQLAlchemy ORM 模型
+│   │   ├── migrations/       #     Alembic 数据库迁移
+│   │   ├── retrieval/        #     RAG 向量检索
+│   │   ├── storage/          #     文件存储（Local/S3/GCS/Azure）
+│   │   └── utils/            #     认证、OAuth、Redis 等
+│   ├── dev.sh                #   开发启动脚本
+│   ├── start.sh              #   生产启动脚本
+│   └── requirements.txt      #   完整 Python 依赖
+├── static/                   # 前端静态资源
+├── build/                    # 前端构建产物（npm run build 后生成）
+├── package.json              # 前端依赖 & 脚本
+├── pyproject.toml            # Python 包定义（Hatchling）
+├── vite.config.ts            # Vite 构建配置
+├── svelte.config.js          # SvelteKit 适配器配置
+├── tailwind.config.js        # Tailwind CSS 配置
+├── Dockerfile                # 多阶段 Docker 构建
+├── docker-compose.yaml       # Docker Compose 主配置
+├── docker-compose.gpu.yaml   # GPU 支持 overlay
+├── run-compose.sh            # 交互式 Compose 启动脚本
+├── Makefile                  # 快捷 Docker 命令
+└── .env.example              # 环境变量示例</code></pre>
+
+  <h3>运行架构</h3>
+  <div class="mw">
+    <pre class="mermaid">
+graph LR
+  subgraph 开发模式
+    A[Vite Dev Server<br/>localhost:5173] -->|CORS 跨域请求| B[FastAPI Backend<br/>localhost:8080]
+  end
+  subgraph 生产模式
+    C[浏览器] -->|同域请求| D[FastAPI<br/>localhost:8080]
+    D -->|托管| E[静态前端 build/]
+    D -->|API| F[后端服务]
+  end
+  B -->|Ollama API| G[Ollama<br/>localhost:11434]
+  D -->|Ollama API| G
+    </pre>
+  </div>
+
+  <div class="co co-i">
+    <strong>💡 关键理解</strong>
+    开发时前后端分别启动在不同端口，通过 CORS 通信；生产环境 FastAPI 在 8080 端口同时提供前端静态文件和后端 API，无需 CORS。
+  </div>
+</div>
+
+<!-- 02. 环境准备 -->
+<div class="s" id="s2">
+  <h2>🛠 02. 环境准备</h2>
+  <p>在启动项目之前，需要确保系统安装了正确版本的运行时和工具链。下面分别说明各项依赖的安装方法。</p>
+
+  <h3>版本要求一览</h3>
+  <table>
+    <tr><th>依赖</th><th>版本要求</th><th>推荐版本</th><th>检查命令</th></tr>
+    <tr><td>Python</td><td>&gt;= 3.11, &lt; 3.13</td><td>3.11.x</td><td><code>python3 --version</code></td></tr>
+    <tr><td>Node.js</td><td>&gt;= 18.13.0, &lt;= 22.x.x</td><td>22.x LTS</td><td><code>node --version</code></td></tr>
+    <tr><td>npm</td><td>&gt;= 6.0.0</td><td>随 Node.js 安装</td><td><code>npm --version</code></td></tr>
+    <tr><td>Git</td><td>任意现代版本</td><td>2.30+</td><td><code>git --version</code></td></tr>
+    <tr><td>Docker <span class="tag tag-blue">可选</span></td><td>20.10+</td><td>最新</td><td><code>docker --version</code></td></tr>
+    <tr><td>Ollama <span class="tag tag-blue">可选</span></td><td>&gt;= 0.1.16</td><td>最新</td><td><code>ollama --version</code></td></tr>
+  </table>
+
+  <h3>Python 环境安装</h3>
+  <h4>Ubuntu / Debian</h4>
+  <pre><code># 添加 deadsnakes PPA（如系统自带 Python 版本不满足要求）
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt update
+sudo apt install python3.11 python3.11-venv python3.11-dev</code></pre>
+
+  <h4>macOS（Homebrew）</h4>
+  <pre><code>brew install python@3.11</code></pre>
+
+  <h4>系统级依赖（后端编译需要）</h4>
+  <pre><code># Ubuntu / Debian
+sudo apt install -y \
+  build-essential gcc g++ \
+  ffmpeg pandoc \
+  libmariadb-dev libpq-dev \
+  curl wget git
+
+# macOS
+brew install ffmpeg pandoc libpq mariadb-connector-c</code></pre>
+
+  <div class="co co-w">
+    <strong>⚠️ 注意</strong>
+    后端某些依赖（如 <code>faster-whisper</code>、<code>sentence-transformers</code>）需要 C 编译器。如果安装 Python 依赖时报编译错误，请确保已安装 <code>build-essential</code>（Linux）或 Xcode Command Line Tools（macOS）。
+  </div>
+
+  <h3>Node.js 安装</h3>
+  <pre><code># 使用 nvm（推荐）
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+source ~/.bashrc  # 或 source ~/.zshrc
+nvm install 22
+nvm use 22
+
+# 验证
+node --version   # 应输出 v22.x.x
+npm --version    # 应输出 10.x.x</code></pre>
+
+  <h3>Ollama 安装（用于本地 LLM）</h3>
+  <pre><code># Linux / WSL
+curl -fsSL https://ollama.com/install.sh | sh
+
+# macOS
+brew install ollama
+
+# 启动 Ollama 服务
+ollama serve
+
+# 拉取模型（示例）
+ollama pull llama3.1
+ollama pull qwen2.5</code></pre>
+
+  <div class="co co-i">
+    <strong>💡 提示</strong>
+    Ollama 不是必须的。如果你使用 OpenAI API 或其他兼容 API（如 Groq、Mistral、LMStudio），可以跳过 Ollama 安装，启动后在 Web UI 中配置 API 地址和密钥即可。
+  </div>
+</div>
+
+<!-- 03. 后端启动 -->
+<div class="s" id="s3">
+  <h2>🐍 03. 后端启动（FastAPI）</h2>
+  <p>后端使用 FastAPI 框架，通过 Uvicorn ASGI 服务器运行。默认使用 SQLite 数据库，零配置即可启动。</p>
+
+  <h3>方式一：从源码启动（开发模式）</h3>
+  <span class="badge badge-rec">推荐</span>
+
+  <div class="step-row">
+    <span class="step">1</span>
+    <div class="step-content">
+      <strong>创建 Python 虚拟环境</strong>
+      <pre><code>cd /opt/open-webui
+
+# 创建虚拟环境
+python3.11 -m venv .venv
+
+# 激活虚拟环境
+source .venv/bin/activate
+
+# 确认 Python 版本
+python --version  # Python 3.11.x</code></pre>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <span class="step">2</span>
+    <div class="step-content">
+      <strong>安装后端 Python 依赖</strong>
+      <pre><code># 升级 pip
+pip install --upgrade pip
+
+# 安装完整依赖（含 AI/RAG/向量库等）
+pip install -r backend/requirements.txt
+
+# 或仅安装核心依赖（更快，不含所有向量库客户端）
+# pip install -e "."</code></pre>
+      <div class="co co-w">
+        <strong>⚠️ 依赖安装耗时</strong>
+        完整依赖包含 160+ 包（torch、transformers、chromadb 等），首次安装可能需要 10-30 分钟。建议使用国内镜像：<br>
+        <code>pip install -r backend/requirements.txt -i https://mirrors.aliyun.com/pypi/simple/</code>
+      </div>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <span class="step">3</span>
+    <div class="step-content">
+      <strong>配置环境变量</strong>
+      <pre><code># 复制示例配置
+cp .env.example .env
+
+# 编辑 .env 文件
+# 最小配置只需设置 Ollama 地址（如果使用 Ollama）</code></pre>
+      <div class="fr">.env</div> 文件放在项目根目录 <code>/opt/open-webui/.env</code>
+      <pre><code># ===== 最小配置 =====
+OLLAMA_BASE_URL='http://localhost:11434'
+
+# ===== 可选配置 =====
+# 自定义密钥（不设置则自动生成）
+# WEBUI_SECRET_KEY='your-random-secret-key'
+
+# OpenAI 兼容 API
+# OPENAI_API_BASE_URL='https://api.openai.com/v1'
+# OPENAI_API_KEY='sk-...'
+
+# CORS（开发模式由 dev.sh 自动设置）
+# CORS_ALLOW_ORIGIN='http://localhost:5173;http://localhost:8080'
+
+# 数据库（默认 SQLite，无需配置）
+# DATABASE_URL='sqlite:///backend/data/webui.db'
+
+# PostgreSQL（生产环境推荐）
+# DATABASE_URL='postgresql://user:password@localhost:5432/openwebui'
+
+# 关闭遥测
+SCARF_NO_ANALYTICS=true
+DO_NOT_TRACK=true
+ANONYMIZED_TELEMETRY=false</code></pre>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <span class="step">4</span>
+    <div class="step-content">
+      <strong>启动后端开发服务器</strong>
+      <pre><code>cd /opt/open-webui/backend
+
+# 使用开发启动脚本（推荐，自动配置 CORS + 热重载）
+bash dev.sh</code></pre>
+      <div class="fr">backend/dev.sh</div> 脚本内容：
+      <pre><code>export CORS_ALLOW_ORIGIN="http://localhost:5173;http://localhost:8080"
+PORT="${PORT:-8080}"
+uvicorn open_webui.main:app --port $PORT --host 0.0.0.0 \
+  --forwarded-allow-ips "${FORWARDED_ALLOW_IPS:-*}" --reload</code></pre>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <span class="step">5</span>
+    <div class="step-content">
+      <strong>验证后端启动</strong>
+      <pre><code># 健康检查
+curl http://localhost:8080/health
+# 期望返回: {"status": true}
+
+# API 文档（开发模式自动开启）
+# 浏览器打开: http://localhost:8080/docs</code></pre>
+    </div>
+  </div>
+
+  <h3>方式二：pip 全局安装</h3>
+  <span class="badge badge-alt">简便</span>
+  <pre><code># 直接安装（自动拉取所有依赖）
+pip install open-webui
+
+# 启动服务
+open-webui serve --host 0.0.0.0 --port 8080
+
+# 开发模式（带热重载）
+open-webui dev --host 0.0.0.0 --port 8080</code></pre>
+
+  <h3>后端关键环境变量</h3>
+  <table>
+    <tr><th>变量名</th><th>默认值</th><th>说明</th></tr>
+    <tr><td><code>PORT</code></td><td>8080</td><td>监听端口</td></tr>
+    <tr><td><code>HOST</code></td><td>0.0.0.0</td><td>监听地址</td></tr>
+    <tr><td><code>WEBUI_SECRET_KEY</code></td><td>自动生成</td><td>JWT/会话密钥，<span class="tag tag-red">生产必设</span></td></tr>
+    <tr><td><code>DATABASE_URL</code></td><td>sqlite:///data/webui.db</td><td>数据库连接串</td></tr>
+    <tr><td><code>OLLAMA_BASE_URL</code></td><td>/ollama</td><td>Ollama 服务地址</td></tr>
+    <tr><td><code>OPENAI_API_KEY</code></td><td>空</td><td>OpenAI API 密钥</td></tr>
+    <tr><td><code>OPENAI_API_BASE_URL</code></td><td>空</td><td>OpenAI 兼容 API 地址</td></tr>
+    <tr><td><code>DATA_DIR</code></td><td>backend/data</td><td>数据目录（SQLite、上传文件）</td></tr>
+    <tr><td><code>REDIS_URL</code></td><td>空</td><td>Redis 地址（多 Worker 推荐）</td></tr>
+    <tr><td><code>UVICORN_WORKERS</code></td><td>1</td><td>Uvicorn Worker 数量</td></tr>
+    <tr><td><code>ENABLE_DB_MIGRATIONS</code></td><td>True</td><td>启动时自动迁移数据库</td></tr>
+    <tr><td><code>ENV</code></td><td>dev</td><td>设为 <code>dev</code> 开放 /docs</td></tr>
+  </table>
+
+  <div class="co co-t">
+    <strong>✅ 启动成功标志</strong>
+    终端出现 <code>INFO:     Uvicorn running on http://0.0.0.0:8080</code> 且 <code>curl localhost:8080/health</code> 返回 <code>{"status":true}</code>。
+  </div>
+</div>
+
+<!-- 04. 前端启动 -->
+<div class="s" id="s4">
+  <h2>🎨 04. 前端启动（SvelteKit）</h2>
+  <p>前端使用 SvelteKit + Vite 构建，开发模式下启动 Vite Dev Server，生产模式下构建为静态文件由后端托管。</p>
+
+  <h3>开发模式启动</h3>
+
+  <div class="co co-d">
+    <strong>❗ 前提条件</strong>
+    前端开发模式<strong>必须先启动后端</strong>。前端代码硬编码了开发模式 API 地址为 <code>http://&lt;hostname&gt;:8080</code>，如果后端未启动，页面会跳转到 <code>/error</code> 显示 "Backend Required"。
+  </div>
+
+  <div class="step-row">
+    <span class="step">1</span>
+    <div class="step-content">
+      <strong>安装前端依赖</strong>
+      <pre><code>cd /opt/open-webui
+
+# 安装 npm 依赖（需要 --force 解决 peer dependency 冲突）
+npm install --force
+
+# 或 CI 环境
+npm ci --force</code></pre>
+      <div class="co co-w">
+        <strong>⚠️ 为什么需要 --force？</strong>
+        TipTap v3 富文本编辑器存在 peer dependency 版本冲突，属于已知问题。使用 <code>--force</code> 可以安全忽略。
+      </div>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <span class="step">2</span>
+    <div class="step-content">
+      <strong>启动 Vite 开发服务器</strong>
+      <pre><code># 默认端口 5173
+npm run dev
+
+# 或指定端口 5050
+npm run dev:5050</code></pre>
+      <div class="co co-i">
+        <strong>💡 首次启动注意</strong>
+        <code>npm run dev</code> 会先执行 <code>pyodide:fetch</code> 脚本，下载 Pyodide Python 运行时到 <code>static/pyodide/</code>。首次下载约 50MB，后续启动会跳过。如果网络较慢，可先单独执行 <code>npm run pyodide:fetch</code>。
+      </div>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <span class="step">3</span>
+    <div class="step-content">
+      <strong>访问开发页面</strong>
+      <pre><code># 浏览器打开
+http://localhost:5173</code></pre>
+    </div>
+  </div>
+
+  <h3>前端如何连接后端</h3>
+  <p>前端没有 Vite proxy 配置，而是直接通过 CORS 跨域请求后端。关键逻辑在 <code>src/lib/constants.ts</code> 中：</p>
+  <pre><code>// 开发模式：固定请求 http://&lt;当前hostname&gt;:8080
+export const WEBUI_HOSTNAME = browser
+  ? (dev ? `${location.hostname}:8080` : ``)
+  : '';
+export const WEBUI_BASE_URL = browser
+  ? (dev ? `http://${WEBUI_HOSTNAME}` : ``)
+  : ``;
+
+// 生产模式：使用相对路径（同域），WEBUI_BASE_URL 为空字符串
+export const WEBUI_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1`;</code></pre>
+
+  <div class="co co-i">
+    <strong>💡 开发模式连接关系</strong>
+    <table>
+      <tr><th>前端地址</th><th>后端地址</th><th>CORS 配置</th></tr>
+      <tr><td>http://localhost:5173</td><td>http://localhost:8080</td><td>dev.sh 已配置允许 5173</td></tr>
+    </table>
+    如果后端端口不是 8080，需要修改 <code>src/lib/constants.ts</code> 中的端口。
+  </div>
+
+  <h3>生产模式构建</h3>
+  <pre><code># 构建静态文件到 build/ 目录
+npm run build
+
+# 预览构建结果
+npm run preview</code></pre>
+  <p>构建完成后，<code>build/</code> 目录会被 FastAPI 自动托管，访问后端 8080 端口即可看到完整 Web UI。</p>
+
+  <h3>前端常用命令速查</h3>
+  <table>
+    <tr><th>命令</th><th>说明</th></tr>
+    <tr><td><code>npm run dev</code></td><td>启动开发服务器（端口 5173）</td></tr>
+    <tr><td><code>npm run dev:5050</code></td><td>指定端口 5050 启动</td></tr>
+    <tr><td><code>npm run build</code></td><td>生产构建（输出到 build/）</td></tr>
+    <tr><td><code>npm run preview</code></td><td>预览构建产物</td></tr>
+    <tr><td><code>npm run check</code></td><td>Svelte 类型检查</td></tr>
+    <tr><td><code>npm run lint</code></td><td>ESLint 代码检查</td></tr>
+    <tr><td><code>npm run format</code></td><td>Prettier 代码格式化</td></tr>
+    <tr><td><code>npm run test:frontend</code></td><td>Vitest 单元测试</td></tr>
+    <tr><td><code>npm run pyodide:fetch</code></td><td>下载 Pyodide 运行时</td></tr>
+  </table>
+</div>
+
+<!-- 05. 完整本地开发流程 -->
+<div class="s" id="s5">
+  <h2>🚀 05. 完整本地开发流程</h2>
+  <p>将前后端配合启动，实现完整的本地开发环境。需要开启两个终端窗口。</p>
+
+  <h3>前置检查</h3>
+  <pre><code># 确认环境
+python3.11 --version   # Python 3.11.x
+node --version          # v22.x.x 或 v18-v22
+npm --version           # 10.x.x
+
+# 确认 Ollama 运行中（如果需要）
+ollama list             # 列出已安装模型</code></pre>
+
+  <h3>终端 1 — 启动后端</h3>
+  <pre><code>cd /opt/open-webui
+
+# 激活虚拟环境
+source .venv/bin/activate
+
+# 进入后端目录并启动
+cd backend
+bash dev.sh
+
+# 等待看到: INFO: Uvicorn running on http://0.0.0.0:8080</code></pre>
+
+  <h3>终端 2 — 启动前端</h3>
+  <pre><code>cd /opt/open-webui
+
+# 启动前端开发服务器
+npm run dev
+
+# 等待看到: VITE vX.X.X ready in XXXms
+#   ➜  Local:   http://localhost:5173/
+#   ➜  Network: http://x.x.x.x:5173/</code></pre>
+
+  <h3>访问应用</h3>
+  <pre><code># 浏览器打开前端开发地址
+http://localhost:5173
+
+# 首次访问会提示注册管理员账户
+# 第一个注册的用户自动成为管理员</code></pre>
+
+  <h3>开发流程图</h3>
+  <div class="mw">
+    <pre class="mermaid">
+sequenceDiagram
+    participant D as 开发者
+    participant T1 as 终端1-后端
+    participant T2 as 终端2-前端
+    participant B as 浏览器
+
+    D->>T1: cd backend && bash dev.sh
+    T1-->>T1: Uvicorn 启动 :8080 (热重载)
+    D->>T2: npm run dev
+    T2-->>T2: Vite 启动 :5173 (HMR)
+    D->>B: 打开 localhost:5173
+    B->>T1: API 请求 → localhost:8080
+    T1-->>B: 返回数据
+    Note over D,B: 修改 src/ 代码 → Vite HMR 即时刷新
+    Note over D,B: 修改 backend/ 代码 → Uvicorn 自动重载
+    </pre>
+  </div>
+
+  <div class="co co-t">
+    <strong>✅ 开发技巧</strong>
+    <ul>
+      <li>前端文件修改后 Vite 会即时热更新（HMR），无需刷新页面</li>
+      <li>后端 Python 文件修改后 Uvicorn 会自动重载（<code>--reload</code>），但需要等待几秒</li>
+      <li>数据库迁移在每次后端启动时自动执行</li>
+      <li>Swagger API 文档在开发模式自动可用：<code>http://localhost:8080/docs</code></li>
+    </ul>
+  </div>
+</div>
+
+<!-- 06. Docker 部署 -->
+<div class="s" id="s6">
+  <h2>🐳 06. Docker 部署</h2>
+  <p>Docker 是最推荐的生产部署方式。项目提供了完善的 Dockerfile 和多种 Docker Compose overlay 配置。</p>
+
+  <h3>方式一：Docker Compose（推荐）</h3>
+  <p>默认配置启动 Ollama + Open WebUI 双服务栈：</p>
+  <pre><code># 最简单的启动方式
+docker compose up -d
+
+# 或使用 Makefile
+make install</code></pre>
+
+  <div class="fr">docker-compose.yaml</div> 核心内容：
+  <pre><code>services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+
+  open-webui:
+    build: .
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    ports:
+      - "3000:8080"       # 宿主机 3000 → 容器 8080
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      - open-webui:/app/backend/data
+    depends_on:
+      - ollama
+    restart: unless-stopped</code></pre>
+
+  <h3>Compose Overlay 组合</h3>
+  <table>
+    <tr><th>文件</th><th>功能</th><th>叠加方式</th></tr>
+    <tr><td><code>docker-compose.gpu.yaml</code></td><td>NVIDIA GPU 支持</td><td><code>-f docker-compose.gpu.yaml</code></td></tr>
+    <tr><td><code>docker-compose.amdgpu.yaml</code></td><td>AMD ROCm GPU</td><td><code>-f docker-compose.amdgpu.yaml</code></td></tr>
+    <tr><td><code>docker-compose.data.yaml</code></td><td>Ollama 数据 bind mount</td><td><code>-f docker-compose.data.yaml</code></td></tr>
+    <tr><td><code>docker-compose.api.yaml</code></td><td>暴露 Ollama API 端口</td><td><code>-f docker-compose.api.yaml</code></td></tr>
+    <tr><td><code>docker-compose.playwright.yaml</code></td><td>Playwright 网页抓取</td><td><code>-f docker-compose.playwright.yaml</code></td></tr>
+    <tr><td><code>docker-compose.otel.yaml</code></td><td>OpenTelemetry 可观测性</td><td><code>-f docker-compose.otel.yaml</code></td></tr>
+  </table>
+
+  <h3>方式二：交互式启动脚本</h3>
+  <pre><code># 基础启动
+./run-compose.sh
+
+# 带 GPU（1 块 NVIDIA GPU）
+./run-compose.sh --enable-gpu[count=1]
+
+# 完整组合示例
+./run-compose.sh \
+  --enable-gpu[count=1] \
+  --enable-api[port=11435] \
+  --webui[port=3000] \
+  --playwright \
+  --build</code></pre>
+
+  <h3>方式三：单容器运行（使用官方镜像）</h3>
+  <pre><code># 基础版（连接外部 Ollama）
+docker run -d -p 3000:8080 \
+  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
+  -v open-webui:/app/backend/data \
+  --name open-webui \
+  --restart unless-stopped \
+  ghcr.io/open-webui/open-webui:main
+
+# CUDA 版
+docker run -d -p 3000:8080 \
+  --gpus all \
+  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
+  -v open-webui:/app/backend/data \
+  --name open-webui \
+  ghcr.io/open-webui/open-webui:cuda
+
+# 内置 Ollama 版
+docker run -d -p 3000:8080 \
+  -v open-webui:/app/backend/data \
+  -v ollama:/root/.ollama \
+  --name open-webui \
+  ghcr.io/open-webui/open-webui:ollama</code></pre>
+
+  <h3>Makefile 快捷命令</h3>
+  <table>
+    <tr><th>命令</th><th>说明</th></tr>
+    <tr><td><code>make install</code></td><td>docker compose up -d</td></tr>
+    <tr><td><code>make start</code></td><td>启动已有容器</td></tr>
+    <tr><td><code>make stop</code></td><td>停止容器</td></tr>
+    <tr><td><code>make startAndBuild</code></td><td>重新构建并启动</td></tr>
+    <tr><td><code>make update</code></td><td>拉取代码 + 重建 + 更新模型</td></tr>
+    <tr><td><code>make remove</code></td><td>交互确认后删除</td></tr>
+  </table>
+
+  <h3>Docker 构建参数</h3>
+  <table>
+    <tr><th>参数</th><th>默认值</th><th>说明</th></tr>
+    <tr><td><code>USE_CUDA</code></td><td>false</td><td>启用 CUDA 支持</td></tr>
+    <tr><td><code>USE_OLLAMA</code></td><td>false</td><td>容器内捆绑 Ollama</td></tr>
+    <tr><td><code>USE_SLIM</code></td><td>false</td><td>精简镜像（跳过模型预下载）</td></tr>
+    <tr><td><code>USE_CUDA_VER</code></td><td>cu128</td><td>CUDA 版本号</td></tr>
+    <tr><td><code>USE_EMBEDDING_MODEL</code></td><td>all-MiniLM-L6-v2</td><td>RAG 嵌入模型</td></tr>
+  </table>
+
+  <div class="co co-i">
+    <strong>💡 Docker 端口映射</strong>
+    默认宿主机端口 3000 映射到容器内 8080。可通过环境变量 <code>OPEN_WEBUI_PORT</code> 或 <code>--webui[port=xxxx]</code> 修改。
+  </div>
+</div>
+
+<!-- 07. 数据库配置 -->
+<div class="s" id="s7">
+  <h2>🗄 07. 数据库配置</h2>
+  <p>项目支持 SQLite 和 PostgreSQL 两种数据库，默认使用 SQLite 零配置启动。数据库迁移在启动时自动执行。</p>
+
+  <h3>SQLite（默认，零配置）</h3>
+  <pre><code># 数据库文件自动创建在
+backend/data/webui.db
+
+# 无需任何配置，启动即用</code></pre>
+
+  <h3>PostgreSQL（生产推荐）</h3>
+  <pre><code># 创建数据库
+createdb openwebui
+
+# 配置环境变量（.env 文件）
+DATABASE_URL='postgresql://user:password@localhost:5432/openwebui'
+
+# 或分项配置
+DATABASE_TYPE=postgresql
+DATABASE_USER=openwebui
+DATABASE_PASSWORD=secret
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_NAME=openwebui</code></pre>
+
+  <h3>数据库迁移</h3>
+  <div class="mw">
+    <pre class="mermaid">
+graph LR
+    A[应用启动] --> B{ENABLE_DB_MIGRATIONS?}
+    B -->|True| C[Peewee 迁移<br/>001-018 历史兼容]
+    C --> D[Alembic 迁移<br/>40+ 版本文件]
+    D --> E[应用就绪]
+    B -->|False| E
+    </pre>
+  </div>
+  <pre><code># 手动执行迁移（通常不需要）
+cd backend
+alembic -c open_webui/alembic.ini upgrade head</code></pre>
+
+  <h3>数据库相关环境变量</h3>
+  <table>
+    <tr><th>变量</th><th>说明</th></tr>
+    <tr><td><code>DATABASE_URL</code></td><td>完整连接串（优先级最高）</td></tr>
+    <tr><td><code>DATABASE_POOL_SIZE</code></td><td>连接池大小</td></tr>
+    <tr><td><code>DATABASE_POOL_MAX_OVERFLOW</code></td><td>连接池最大溢出</td></tr>
+    <tr><td><code>DATABASE_ENABLE_SQLITE_WAL</code></td><td>SQLite WAL 模式（默认 True）</td></tr>
+    <tr><td><code>DATABASE_SCHEMA</code></td><td>PostgreSQL schema</td></tr>
+    <tr><td><code>ENABLE_DB_MIGRATIONS</code></td><td>启动时自动迁移（默认 True）</td></tr>
+  </table>
+</div>
+
+<!-- 08. 常见问题排查 -->
+<div class="s" id="s8">
+  <h2>🔧 08. 常见问题排查</h2>
+  <p>收录本地开发和部署中高频遇到的问题及解决方案。</p>
+
+  <h3>后端启动失败</h3>
+
+  <h4>问题：ModuleNotFoundError</h4>
+  <pre><code>ModuleNotFoundError: No module named 'open_webui'</code></pre>
+  <div class="co co-t">
+    <strong>✅ 解决方案</strong>
+    确保在 <code>backend/</code> 目录下执行启动脚本，且已激活虚拟环境：
+    <pre><code>source /opt/open-webui/.venv/bin/activate
+cd /opt/open-webui/backend
+bash dev.sh</code></pre>
+  </div>
+
+  <h4>问题：pip install 编译失败</h4>
+  <pre><code>error: command 'gcc' failed
+# 或
+fatal error: Python.h: No such file or directory</code></pre>
+  <div class="co co-t">
+    <strong>✅ 解决方案</strong>
+    安装系统编译依赖：
+    <pre><code># Ubuntu/Debian
+sudo apt install build-essential python3.11-dev
+
+# macOS
+xcode-select --install</code></pre>
+  </div>
+
+  <h4>问题：端口 8080 被占用</h4>
+  <pre><code>ERROR: [Errno 98] Address already in use</code></pre>
+  <div class="co co-t">
+    <strong>✅ 解决方案</strong>
+    <pre><code># 查找占用进程
+lsof -i :8080
+# 或使用其他端口
+PORT=9090 bash dev.sh</code></pre>
+    注意：如果修改后端端口，前端 <code>src/lib/constants.ts</code> 中硬编码的 <code>8080</code> 也需要同步修改。
+  </div>
+
+  <h3>前端启动失败</h3>
+
+  <h4>问题：npm install 报 peer dependency 冲突</h4>
+  <pre><code>npm ERR! ERESOLVE unable to resolve dependency tree</code></pre>
+  <div class="co co-t">
+    <strong>✅ 解决方案</strong>
+    TipTap v3 的已知问题，使用 <code>--force</code> 标志：
+    <pre><code>npm install --force</code></pre>
+  </div>
+
+  <h4>问题：页面显示 "Backend Required"</h4>
+  <div class="co co-t">
+    <strong>✅ 解决方案</strong>
+    前端必须在后端运行后才能正常使用。请确保：
+    <ol>
+      <li>后端已在 8080 端口运行</li>
+      <li><code>curl http://localhost:8080/health</code> 返回 <code>{"status":true}</code></li>
+      <li>后端 <code>dev.sh</code> 中的 CORS 配置包含前端地址</li>
+    </ol>
+  </div>
+
+  <h4>问题：Pyodide 下载缓慢</h4>
+  <div class="co co-t">
+    <strong>✅ 解决方案</strong>
+    <code>npm run dev</code> 首次会下载 Pyodide 运行时（~50MB）。可以：
+    <ul>
+      <li>使用代理：<code>HTTPS_PROXY=http://... npm run pyodide:fetch</code></li>
+      <li>手动下载后放入 <code>static/pyodide/</code></li>
+      <li>如果不需要浏览器内 Python 执行，可以暂时跳过（不影响主功能）</li>
+    </ul>
+  </div>
+
+  <h3>Docker 相关</h3>
+
+  <h4>问题：容器内无法连接宿主机 Ollama</h4>
+  <div class="co co-t">
+    <strong>✅ 解决方案</strong>
+    <pre><code># 使用 host.docker.internal（Linux 需要 extra_hosts 配置）
+docker run -d -p 3000:8080 \
+  --add-host=host.docker.internal:host-gateway \
+  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
+  ghcr.io/open-webui/open-webui:main
+
+# docker-compose.yaml 已包含此配置
+extra_hosts:
+  - host.docker.internal:host-gateway</code></pre>
+  </div>
+
+  <h4>问题：Docker 构建内存不足</h4>
+  <div class="co co-t">
+    <strong>✅ 解决方案</strong>
+    完整构建需要 4GB+ 内存。可使用精简模式跳过模型预下载：
+    <pre><code>docker build --build-arg USE_SLIM=true -t open-webui .</code></pre>
+  </div>
+
+  <h3>快速诊断检查清单</h3>
+  <table>
+    <tr><th>检查项</th><th>命令</th><th>期望结果</th></tr>
+    <tr><td>Python 版本</td><td><code>python3 --version</code></td><td>3.11.x 或 3.12.x</td></tr>
+    <tr><td>Node 版本</td><td><code>node --version</code></td><td>v18-v22</td></tr>
+    <tr><td>虚拟环境激活</td><td><code>which python</code></td><td>包含 <code>.venv</code> 路径</td></tr>
+    <tr><td>后端健康</td><td><code>curl localhost:8080/health</code></td><td><code>{"status":true}</code></td></tr>
+    <tr><td>Ollama 运行</td><td><code>curl localhost:11434</code></td><td>Ollama is running</td></tr>
+    <tr><td>前端端口</td><td><code>curl -I localhost:5173</code></td><td>HTTP 200</td></tr>
+    <tr><td>Docker 运行</td><td><code>docker ps</code></td><td>open-webui 容器 Up</td></tr>
+  </table>
+</div>
+
+<!-- 09. 进阶配置 -->
+<div class="s" id="s9">
+  <h2>⚙ 09. 进阶配置</h2>
+  <p>涵盖认证、Redis、多 Worker、存储后端等生产环境常用配置。</p>
+
+  <h3>认证配置</h3>
+  <table>
+    <tr><th>变量</th><th>说明</th></tr>
+    <tr><td><code>WEBUI_AUTH</code></td><td>是否启用认证（默认 True）</td></tr>
+    <tr><td><code>WEBUI_ADMIN_EMAIL</code></td><td>启动时自动创建管理员邮箱</td></tr>
+    <tr><td><code>WEBUI_ADMIN_PASSWORD</code></td><td>管理员密码</td></tr>
+    <tr><td><code>ENABLE_OAUTH_*</code></td><td>OAuth 集成配置</td></tr>
+    <tr><td><code>WEBUI_AUTH_TRUSTED_*_HEADER</code></td><td>反向代理 SSO 头</td></tr>
+  </table>
+
+  <h3>Redis + 多 Worker</h3>
+  <pre><code># .env 配置
+REDIS_URL='redis://localhost:6379/0'
+UVICORN_WORKERS=4</code></pre>
+  <div class="co co-w">
+    <strong>⚠️ 多 Worker 必须配置 Redis</strong>
+    当 <code>UVICORN_WORKERS > 1</code> 时，WebSocket 和会话需要 Redis 进行跨 Worker 通信。不配置 Redis 会导致 WebSocket 连接不稳定。
+  </div>
+
+  <h3>文件存储后端</h3>
+  <table>
+    <tr><th>后端</th><th>配置变量</th></tr>
+    <tr><td>本地文件系统 <span class="badge badge-rec">默认</span></td><td><code>DATA_DIR</code></td></tr>
+    <tr><td>Amazon S3</td><td><code>S3_*</code> 系列变量</td></tr>
+    <tr><td>Google Cloud Storage</td><td><code>GCS_*</code> 系列变量</td></tr>
+    <tr><td>Azure Blob Storage</td><td><code>AZURE_*</code> 系列变量</td></tr>
+  </table>
+
+  <h3>RAG 向量数据库</h3>
+  <p>默认使用 ChromaDB（内置），支持切换到其他向量数据库：</p>
+  <table>
+    <tr><th>向量库</th><th>包</th></tr>
+    <tr><td>ChromaDB <span class="badge badge-rec">默认</span></td><td>chromadb（内置）</td></tr>
+    <tr><td>PGVector</td><td>pgvector（需 PostgreSQL）</td></tr>
+    <tr><td>Qdrant</td><td>qdrant-client</td></tr>
+    <tr><td>Milvus</td><td>pymilvus</td></tr>
+    <tr><td>Elasticsearch</td><td>elasticsearch</td></tr>
+    <tr><td>Pinecone</td><td>pinecone-client</td></tr>
+  </table>
+</div>
+
+<!-- 10. PyCharm 配置启动 -->
+<div class="s" id="s10">
+  <h2>🖥 10. 使用 PyCharm 启动后端</h2>
+  <p>如果你习惯使用 PyCharm IDE 进行开发，可以通过配置 Run Configuration 来启动和调试后端。下面提供三种配置方式。</p>
+
+  <h3>前提：配置 Python 解释器</h3>
+  <div class="step-row">
+    <span class="step">1</span>
+    <div class="step-content">
+      <strong>打开项目</strong>
+      <p>用 PyCharm 打开 <code>/opt/open-webui</code> 根目录（不是 <code>backend/</code> 子目录）。</p>
+    </div>
+  </div>
+  <div class="step-row">
+    <span class="step">2</span>
+    <div class="step-content">
+      <strong>配置 Python 解释器</strong>
+      <p><code>File → Settings → Project → Python Interpreter</code></p>
+      <ul>
+        <li>点击齿轮图标 → <code>Add Interpreter → Add Local Interpreter</code></li>
+        <li>选择 <strong>Existing</strong>，路径指向：<code>/opt/open-webui/.venv/bin/python</code></li>
+        <li>如果还没创建虚拟环境，选择 <strong>New</strong>，Base interpreter 选 Python 3.11</li>
+      </ul>
+      <div class="co co-i">
+        <strong>💡 提示</strong>
+        确保解释器使用 Python 3.11.x 或 3.12.x。PyCharm 会自动识别 <code>.venv</code> 目录。
+      </div>
+    </div>
+  </div>
+  <div class="step-row">
+    <span class="step">3</span>
+    <div class="step-content">
+      <strong>安装依赖</strong>
+      <p>在 PyCharm Terminal 中执行（或通过 PyCharm 的包管理界面安装）：</p>
+      <pre><code>pip install -r backend/requirements.txt -i https://mirrors.aliyun.com/pypi/simple/</code></pre>
+    </div>
+  </div>
+
+  <h3>方式一：Uvicorn Run Configuration <span class="badge badge-rec">推荐</span></h3>
+  <p>直接配置 Uvicorn 启动 FastAPI 应用，支持断点调试。</p>
+
+  <div class="step-row">
+    <span class="step">1</span>
+    <div class="step-content">
+      <strong>创建 Run Configuration</strong>
+      <p><code>Run → Edit Configurations → + → Python</code></p>
+    </div>
+  </div>
+  <div class="step-row">
+    <span class="step">2</span>
+    <div class="step-content">
+      <strong>填写配置项</strong>
+      <table>
+        <tr><th>配置项</th><th>值</th></tr>
+        <tr><td>Name</td><td><code>Open WebUI Backend (Dev)</code></td></tr>
+        <tr><td>Module name</td><td><code>uvicorn</code>（选择 "Module name" 而非 "Script path"）</td></tr>
+        <tr><td>Parameters</td><td><code>open_webui.main:app --host 0.0.0.0 --port 8080 --reload</code></td></tr>
+        <tr><td>Working directory</td><td><code>/opt/open-webui/backend</code></td></tr>
+        <tr><td>Python interpreter</td><td>选择项目的 .venv 解释器</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="step-row">
+    <span class="step">3</span>
+    <div class="step-content">
+      <strong>配置环境变量</strong>
+      <p>在 Run Configuration 的 <code>Environment variables</code> 中添加：</p>
+      <pre><code>CORS_ALLOW_ORIGIN=http://localhost:5173;http://localhost:8080
+WEBUI_SECRET_KEY=dev-secret-key-12345
+OLLAMA_BASE_URL=http://localhost:11434</code></pre>
+      <div class="co co-i">
+        <strong>💡 设置方法</strong>
+        点击 Environment variables 右侧的文件夹图标，在弹出的对话框中逐行添加键值对。也可以点击右下角 <code>...</code> 从 <code>.env</code> 文件加载。
+      </div>
+    </div>
+  </div>
+  <div class="step-row">
+    <span class="step">4</span>
+    <div class="step-content">
+      <strong>运行或调试</strong>
+      <ul>
+        <li>点击 <strong>Run ▶</strong> 正常启动</li>
+        <li>点击 <strong>Debug 🐛</strong> 启动调试模式（可设断点）</li>
+      </ul>
+      <div class="co co-w">
+        <strong>⚠️ 调试模式注意</strong>
+        Debug 模式下 <code>--reload</code> 参数可能导致断点失效（Uvicorn reload 会 fork 子进程）。如果需要断点调试，建议去掉 <code>--reload</code> 参数：<br>
+        Parameters: <code>open_webui.main:app --host 0.0.0.0 --port 8080</code>
+      </div>
+    </div>
+  </div>
+
+  <h3>方式二：Shell Script Configuration</h3>
+  <p>直接运行 <code>dev.sh</code> 脚本，最简单但不支持断点调试。</p>
+  <table>
+    <tr><th>配置项</th><th>值</th></tr>
+    <tr><td>Name</td><td><code>Open WebUI dev.sh</code></td></tr>
+    <tr><td>Script path</td><td><code>/opt/open-webui/backend/dev.sh</code></td></tr>
+    <tr><td>Interpreter path</td><td><code>/bin/bash</code></td></tr>
+    <tr><td>Working directory</td><td><code>/opt/open-webui/backend</code></td></tr>
+  </table>
+  <p><code>Run → Edit Configurations → + → Shell Script</code>，然后按上表配置。</p>
+
+  <h3>方式三：FastAPI Plugin（PyCharm Professional）</h3>
+  <p>如果使用 PyCharm Professional 版，可以使用内置的 FastAPI 运行配置。</p>
+  <table>
+    <tr><th>配置项</th><th>值</th></tr>
+    <tr><td>Name</td><td><code>Open WebUI FastAPI</code></td></tr>
+    <tr><td>Application path</td><td><code>open_webui.main:app</code></td></tr>
+    <tr><td>Uvicorn options</td><td><code>--host 0.0.0.0 --port 8080 --reload</code></td></tr>
+    <tr><td>Working directory</td><td><code>/opt/open-webui/backend</code></td></tr>
+  </table>
+  <p><code>Run → Edit Configurations → + → FastAPI</code>，同样需要配置环境变量。</p>
+
+  <h3>PyCharm 配置截图示意</h3>
+  <div class="mw">
+    <pre class="mermaid">
+graph TD
+    subgraph PyCharm Run Configuration
+        A[Module name: uvicorn]
+        B["Parameters:<br/>open_webui.main:app<br/>--host 0.0.0.0<br/>--port 8080<br/>--reload"]
+        C["Working directory:<br/>/opt/open-webui/backend"]
+        D["Environment variables:<br/>CORS_ALLOW_ORIGIN=...<br/>WEBUI_SECRET_KEY=...<br/>OLLAMA_BASE_URL=..."]
+        E["Python interpreter:<br/>.venv/bin/python"]
+    end
+    A --> B --> C --> D --> E
+    E --> F[点击 Run ▶ 或 Debug 🐛]
+    </pre>
+  </div>
+
+  <h3>Sources Root 配置</h3>
+  <p>为了让 PyCharm 正确解析 <code>import open_webui</code>，需要将 <code>backend</code> 目录标记为 Sources Root：</p>
+  <ol>
+    <li>在项目视图中右键 <code>backend</code> 目录</li>
+    <li>选择 <code>Mark Directory as → Sources Root</code></li>
+    <li>此时 <code>backend</code> 目录图标会变为蓝色</li>
+  </ol>
+  <div class="co co-d">
+    <strong>❗ 不标记 Sources Root 的后果</strong>
+    PyCharm 会在所有 <code>from open_webui import ...</code> 处报红色 "Unresolved reference" 错误，虽然不影响运行但会干扰开发体验。
+  </div>
+
+  <h3>完整 PyCharm 配置清单</h3>
+  <table>
+    <tr><th>检查项</th><th>如何确认</th></tr>
+    <tr><td>Python 解释器</td><td>Settings → Python Interpreter → 显示 Python 3.11.x + .venv 路径</td></tr>
+    <tr><td>依赖已安装</td><td>Interpreter 页面列出 fastapi、uvicorn、sqlalchemy 等包</td></tr>
+    <tr><td>Sources Root</td><td><code>backend/</code> 图标为蓝色</td></tr>
+    <tr><td>Working Directory</td><td>Run Configuration 中设为 <code>/opt/open-webui/backend</code></td></tr>
+    <tr><td>环境变量</td><td>至少包含 <code>CORS_ALLOW_ORIGIN</code> 和 <code>WEBUI_SECRET_KEY</code></td></tr>
+    <tr><td>Module name</td><td>选择 "Module name" 模式，填写 <code>uvicorn</code></td></tr>
+  </table>
+
+  <div class="co co-t">
+    <strong>✅ 验证启动成功</strong>
+    PyCharm Run 窗口出现以下日志即表示启动成功：
+    <pre><code>INFO:     Started reloader process [xxxxx] using WatchFiles
+INFO:     Started server process [xxxxx]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)</code></pre>
+    在浏览器打开 <code>http://localhost:8080/health</code> 应返回 <code>{"status":true}</code>。
+  </div>
+</div>
+
+<!-- 11. 端口速查 & 架构总结 -->
+<div class="s" id="s11">
+  <h2>📋 11. 端口速查 & 架构总结</h2>
+  <p>汇总各服务的端口和部署架构，方便快速查阅。</p>
+
+  <h3>端口汇总</h3>
+  <table>
+    <tr><th>服务</th><th>端口</th><th>场景</th></tr>
+    <tr><td>Vite Dev Server</td><td><strong>5173</strong></td><td>前端开发</td></tr>
+    <tr><td>FastAPI Backend</td><td><strong>8080</strong></td><td>后端 / 生产统一入口</td></tr>
+    <tr><td>Ollama</td><td><strong>11434</strong></td><td>本地 LLM 服务</td></tr>
+    <tr><td>Docker 映射</td><td><strong>3000</strong> → 8080</td><td>Docker Compose 默认</td></tr>
+    <tr><td>Redis</td><td><strong>6379</strong></td><td>多 Worker 会话/WS</td></tr>
+    <tr><td>PostgreSQL</td><td><strong>5432</strong></td><td>生产数据库</td></tr>
+  </table>
+
+  <h3>部署架构全景</h3>
+  <div class="mw">
+    <pre class="mermaid">
+graph TB
+    subgraph 客户端
+        U[用户浏览器]
+    end
+
+    subgraph Docker 容器 / 本地服务
+        subgraph open-webui
+            FE[静态前端<br/>build/]
+            BE[FastAPI<br/>:8080]
+            WS[WebSocket<br/>/ws]
+            DB[(SQLite/PostgreSQL)]
+            FS[文件存储<br/>Local/S3/GCS]
+            VDB[(ChromaDB<br/>向量数据库)]
+        end
+        OL[Ollama<br/>:11434]
+        RD[(Redis<br/>:6379)]
+    end
+
+    subgraph 外部 API
+        OAI[OpenAI API]
+        ANT[Anthropic API]
+        GGL[Google GenAI]
+    end
+
+    U -->|HTTP/WS| BE
+    BE --> FE
+    BE --> WS
+    BE --> DB
+    BE --> FS
+    BE --> VDB
+    BE -->|/ollama| OL
+    BE -->|/openai| OAI
+    BE --> ANT
+    BE --> GGL
+    BE -.->|会话/WS| RD
+    </pre>
+  </div>
+
+  <h3>一键启动命令对照</h3>
+  <table>
+    <tr><th>场景</th><th>命令</th></tr>
+    <tr><td>本地开发（源码）</td><td>终端1: <code>cd backend && bash dev.sh</code><br>终端2: <code>npm run dev</code></td></tr>
+    <tr><td>Docker 基础部署</td><td><code>docker compose up -d</code></td></tr>
+    <tr><td>Docker + GPU</td><td><code>./run-compose.sh --enable-gpu[count=1]</code></td></tr>
+    <tr><td>pip 安装</td><td><code>pip install open-webui && open-webui serve</code></td></tr>
+    <tr><td>生产构建</td><td><code>npm run build && cd backend && bash start.sh</code></td></tr>
+  </table>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  Open WebUI 本地启动操作手册 · open-webui v0.9.5 · 2025-05-21
+</div>
+
+</div><!-- .c end -->
+
+<!-- ========== SIDEBAR JS START ========== -->
+<script>
+(function(){
+  const sidebar = document.getElementById('sidebar');
+  const floatBtn = document.getElementById('sb-float-btn');
+
+  // Build TOC
+  const sections = document.querySelectorAll('.s[id]');
+  let tocHTML = '';
+  sections.forEach(sec => {
+    const h2 = sec.querySelector('h2');
+    if (!h2) return;
+    const id = sec.id;
+    tocHTML += `<a class="toc-h2" href="#${id}" data-target="${id}">${h2.textContent}</a>`;
+    const h3s = sec.querySelectorAll('h3');
+    if (h3s.length) {
+      tocHTML += `<div class="toc-group" data-parent="${id}">`;
+      h3s.forEach(h3 => {
+        if (!h3.id) h3.id = h3.textContent.trim().replace(/\s+/g, '-').toLowerCase();
+        tocHTML += `<a class="toc-sub" href="#${h3.id}">${h3.textContent}</a>`;
+      });
+      tocHTML += '</div>';
+    }
+  });
+  sidebar.innerHTML = `<div class="sidebar-title">Open WebUI 启动手册</div>${tocHTML}`;
+
+  // Accordion click
+  sidebar.querySelectorAll('.toc-h2').forEach(a => {
+    a.addEventListener('click', function(e) {
+      e.preventDefault();
+      const target = this.dataset.target;
+      const group = sidebar.querySelector(`.toc-group[data-parent="${target}"]`);
+
+      // Close others
+      sidebar.querySelectorAll('.toc-h2.expanded').forEach(el => {
+        if (el !== this) el.classList.remove('expanded');
+      });
+      sidebar.querySelectorAll('.toc-group.open').forEach(el => {
+        if (el !== group) el.classList.remove('open');
+      });
+
+      // Toggle current
+      this.classList.toggle('expanded');
+      if (group) group.classList.toggle('open');
+
+      // Smooth scroll
+      document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  // Sub item click
+  sidebar.querySelectorAll('.toc-sub').forEach(a => {
+    a.addEventListener('click', function(e) {
+      e.preventDefault();
+      const id = this.getAttribute('href').slice(1);
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  // Scroll highlight
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const scrollY = window.scrollY + 100;
+      let currentSection = null;
+      sections.forEach(sec => {
+        if (sec.offsetTop <= scrollY) currentSection = sec.id;
+      });
+      if (currentSection) {
+        sidebar.querySelectorAll('.toc-h2').forEach(a => {
+          a.classList.toggle('active', a.dataset.target === currentSection);
+          if (a.dataset.target === currentSection && !a.classList.contains('expanded')) {
+            sidebar.querySelectorAll('.toc-h2.expanded').forEach(el => el.classList.remove('expanded'));
+            sidebar.querySelectorAll('.toc-group.open').forEach(el => el.classList.remove('open'));
+            a.classList.add('expanded');
+            const g = sidebar.querySelector(`.toc-group[data-parent="${currentSection}"]`);
+            if (g) g.classList.add('open');
+          }
+        });
+        // Highlight h3
+        const sec = document.getElementById(currentSection);
+        if (sec) {
+          const h3s = sec.querySelectorAll('h3');
+          let currentH3 = null;
+          h3s.forEach(h3 => {
+            if (h3.offsetTop <= scrollY) currentH3 = h3.id;
+          });
+          sidebar.querySelectorAll('.toc-sub').forEach(a => {
+            a.classList.toggle('active', a.getAttribute('href') === `#${currentH3}`);
+          });
+        }
+      }
+      ticking = false;
+    });
+  });
+
+  // Toggle sidebar
+  function toggleSidebar() {
+    document.body.classList.toggle('sb-open');
+    document.body.classList.toggle('sb-closed');
+  }
+  floatBtn.addEventListener('click', toggleSidebar);
+})();
+</script>
+<!-- ========== SIDEBAR JS END ========== -->
+
+<!-- ========== MERMAID INIT ========== -->
+<script>
+mermaid.initialize({startOnLoad:true,theme:'base',themeVariables:{
+  background:'#ffffff',
+  primaryColor:'#dbeafe',
+  primaryTextColor:'#1a202c',
+  primaryBorderColor:'#2563eb',
+  secondaryColor:'#d1fae5',
+  secondaryTextColor:'#1a202c',
+  secondaryBorderColor:'#16a34a',
+  tertiaryColor:'#f8fafc',
+  tertiaryTextColor:'#1a202c',
+  tertiaryBorderColor:'#e2e8f0',
+  lineColor:'#64748b',
+  textColor:'#1a202c',
+  mainBkg:'#ffffff',
+  nodeBkg:'#dbeafe',
+  nodeBorder:'#2563eb',
+  clusterBkg:'#f8fafc',
+  clusterBorder:'#e2e8f0',
+  titleColor:'#1a202c',
+  edgeLabelBackground:'#ffffff',
+  actorBkg:'#dbeafe',
+  actorBorder:'#2563eb',
+  actorTextColor:'#1a202c',
+  actorLineColor:'#64748b',
+  signalColor:'#1a202c',
+  signalTextColor:'#1a202c',
+  labelBoxBkgColor:'#ffffff',
+  labelBoxBorderColor:'#e2e8f0',
+  labelTextColor:'#1a202c',
+  loopTextColor:'#1a202c',
+  noteBkgColor:'#fef3c7',
+  noteBorderColor:'#d97706',
+  noteTextColor:'#1a202c',
+  activationBkgColor:'#eff6ff',
+  activationBorderColor:'#2563eb',
+  sequenceNumberColor:'#ffffff'
+},flowchart:{useMaxWidth:true,htmlLabels:true,curve:'basis'},
+  sequence:{useMaxWidth:true,mirrorActors:false}});
+</script>
+
+<!-- ========== MERMAID TOOLBAR & COPY BUTTONS ========== -->
+<script>
+(function(){
+  // Save mermaid source before rendering
+  const mermaidSources = new Map();
+  document.querySelectorAll('.mw').forEach((mw, idx) => {
+    const pre = mw.querySelector('pre.mermaid');
+    if (pre) mermaidSources.set(idx, pre.textContent.trim());
+  });
+
+  function initMermaidToolbars() {
+    document.querySelectorAll('.mw').forEach((mw, idx) => {
+      const svg = mw.querySelector('svg');
+      if (!svg || mw.querySelector('.mw-toolbar')) return;
+
+      // Wrap SVG in mw-inner
+      const inner = document.createElement('div');
+      inner.className = 'mw-inner';
+      svg.parentNode.insertBefore(inner, svg);
+      inner.appendChild(svg);
+
+      // Record original size
+      const rect = svg.getBoundingClientRect();
+      const origW = rect.width;
+      const origH = rect.height;
+      let scale = 1;
+
+      // Create toolbar
+      const toolbar = document.createElement('div');
+      toolbar.className = 'mw-toolbar';
+
+      function makeBtn(svgIcon, title, fn) {
+        const btn = document.createElement('button');
+        btn.title = title;
+        btn.innerHTML = svgIcon;
+        btn.addEventListener('click', fn);
+        return btn;
+      }
+
+      const zoomInIcon = '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+      const zoomOutIcon = '<svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+      const resetIcon = '<svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
+      const fullscreenIcon = '<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+      const copyIcon = '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+
+      function applyScale() {
+        svg.style.width = (origW * scale) + 'px';
+        svg.style.height = (origH * scale) + 'px';
+        svg.style.minWidth = (origW * scale) + 'px';
+        svg.style.minHeight = (origH * scale) + 'px';
+      }
+
+      function resetScale() {
+        scale = 1;
+        svg.style.width = '';
+        svg.style.height = '';
+        svg.style.minWidth = '';
+        svg.style.minHeight = '';
+      }
+
+      toolbar.appendChild(makeBtn(zoomInIcon, '放大', () => { if (scale < 5) { scale += 0.25; applyScale(); } }));
+      toolbar.appendChild(makeBtn(zoomOutIcon, '缩小', () => { if (scale > 0.25) { scale -= 0.25; applyScale(); } }));
+      toolbar.appendChild(makeBtn(resetIcon, '重置', () => { resetScale(); }));
+      toolbar.appendChild(makeBtn(fullscreenIcon, '全屏', () => {
+        if (mw.classList.contains('mw-fullscreen')) {
+          mw.classList.remove('mw-fullscreen');
+          document.body.style.overflow = '';
+          resetScale();
+        } else {
+          mw.classList.add('mw-fullscreen');
+          document.body.style.overflow = 'hidden';
+        }
+      }));
+      toolbar.appendChild(makeBtn(copyIcon, '复制 Mermaid 源码', () => {
+        const src = mermaidSources.get(idx) || '';
+        navigator.clipboard.writeText(src).then(() => {
+          const btn = toolbar.lastChild;
+          const orig = btn.innerHTML;
+          btn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+          btn.style.color = 'var(--gn)';
+          btn.style.borderColor = 'var(--gn)';
+          setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; btn.style.borderColor = ''; }, 1500);
+        });
+      }));
+
+      mw.appendChild(toolbar);
+    });
+  }
+
+  // Wait for mermaid rendering
+  const observer = new MutationObserver(() => {
+    const svgs = document.querySelectorAll('.mw svg');
+    if (svgs.length > 0) {
+      setTimeout(initMermaidToolbars, 200);
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  setTimeout(initMermaidToolbars, 2000);
+
+  // ESC to exit fullscreen
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.mw-fullscreen').forEach(mw => {
+        mw.classList.remove('mw-fullscreen');
+        document.body.style.overflow = '';
+        const svg = mw.querySelector('svg');
+        if (svg) { svg.style.width=''; svg.style.height=''; svg.style.minWidth=''; svg.style.minHeight=''; }
+      });
+    }
+  });
+
+  // Code block copy buttons
+  document.querySelectorAll('pre code').forEach(code => {
+    const pre = code.parentElement;
+    if (pre.closest('.mw')) return;
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = '复制';
+    btn.addEventListener('click', () => {
+      navigator.clipboard.writeText(code.textContent).then(() => {
+        btn.textContent = '已复制';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 1500);
+      });
+    });
+    pre.appendChild(btn);
+  });
+})();
+</script>
+
+</body>
+</html>

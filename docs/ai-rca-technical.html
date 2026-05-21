@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 故障诊断平台（RCA）— 技术设计方案</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+:root{--bg:#f8f9fa;--card:#fff;--border:#e2e8f0;--tx:#1a202c;--tx2:#4a5568;--tx3:#718096;--ac:#2563eb;--ac-l:#eff6ff;--gn:#16a34a;--gn-l:#f0fdf4;--or:#ea580c;--or-l:#fff7ed;--rd:#dc2626;--rd-l:#fef2f2;--pu:#7c3aed;--pu-l:#f5f3ff;--tl:#0d9488;--tl-l:#f0fdfa;--cb:#1e293b;--ct:#e2e8f0;--sh:0 1px 3px rgba(0,0,0,.08)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--tx);line-height:1.75;font-size:15px}
+.c{max-width:2140px;margin:0 auto;padding:24px}
+.hero{background:linear-gradient(135deg,#059669 0%,#047857 50%,#065f46 100%);color:#fff;padding:48px 40px;border-radius:16px;margin-bottom:32px;box-shadow:0 10px 25px rgba(5,150,105,.25)}
+.hero h1{font-size:28px;font-weight:700;margin-bottom:8px}
+.hero .sub{font-size:16px;opacity:.9;margin-bottom:16px}
+.hero .meta{font-size:13px;opacity:.7}
+.hero .meta a{color:#a7f3d0;text-decoration:underline}
+.s{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px;margin-bottom:24px;box-shadow:var(--sh)}
+.s h2{font-size:20px;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid var(--ac);display:flex;align-items:center;gap:10px}
+.s h3{font-size:16px;color:var(--ac);margin:22px 0 10px;padding-left:12px;border-left:3px solid var(--ac)}
+.s h4{font-size:15px;color:var(--tx2);margin:14px 0 8px;font-weight:600}
+.s p,.s li{color:var(--tx2);margin-bottom:10px}
+.s ul,.s ol{padding-left:22px}
+table{width:100%;border-collapse:collapse;margin:12px 0 18px;font-size:13.5px}
+th{background:#f1f5f9;color:var(--tx);font-weight:600;text-align:left;padding:10px 14px;border-bottom:2px solid var(--border);white-space:nowrap}
+td{padding:9px 14px;border-bottom:1px solid #f1f5f9;color:var(--tx2);vertical-align:top}
+tr:hover td{background:#f8fafc}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono','Fira Code',Consolas,monospace;font-size:13px;color:#d63384}
+pre{background:var(--cb);color:var(--ct);padding:18px 22px;border-radius:8px;overflow-x:auto;font-family:'JetBrains Mono',Consolas,monospace;font-size:13px;line-height:1.65;margin:12px 0 16px}
+pre code{background:none;padding:0;color:inherit}
+.tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
+.tag-green{background:var(--gn-l);color:var(--gn)}
+.tag-orange{background:var(--or-l);color:var(--or)}
+.tag-blue{background:var(--ac-l);color:var(--ac)}
+.tag-purple{background:var(--pu-l);color:var(--pu)}
+.co{padding:16px 20px;border-radius:8px;margin:14px 0;font-size:14px}
+.co-i{background:var(--ac-l);border-left:4px solid var(--ac)}
+.co-w{background:var(--or-l);border-left:4px solid var(--or)}
+.co-t{background:var(--gn-l);border-left:4px solid var(--gn)}
+.co strong{display:block;margin-bottom:4px}
+.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700;margin-left:6px}
+.badge-new{background:#dbeafe;color:#1d4ed8}
+.badge-rec{background:#dcfce7;color:#166534}
+.ref-card{border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin:12px 0;background:#fafbfc;display:flex;gap:16px;align-items:flex-start}
+.ref-card .ref-logo{width:48px;height:48px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0}
+.ref-card .ref-body{flex:1}
+.ref-card .ref-body h4{margin:0 0 4px;font-size:14px;color:var(--tx)}
+.ref-card .ref-body p{margin:0 0 4px;font-size:13px;color:var(--tx2)}
+.ref-card .ref-body .ref-link{font-size:12px;color:var(--ac);text-decoration:none}
+.ref-card .ref-body .ref-link:hover{text-decoration:underline}
+.mw{background:#fff!important;padding:16px;border-radius:8px;margin:16px 0;border:1px solid var(--border);text-align:center;position:relative;overflow:hidden}
+.mw pre{background:#fff!important}
+.mw svg{background:#fff!important}
+.mw .node rect,.mw .node polygon,.mw .node circle{fill:#fff!important}
+.mw .cluster rect{fill:#f8fafc!important;stroke:var(--border)!important}
+.mw .nodeLabel,.mw .edgeLabel,.mw .label{color:#1a202c!important;fill:#1a202c!important}
+.mw .edgePath .path{stroke:#64748b!important}
+.mw .actor{fill:#dbeafe!important;stroke:#2563eb!important}
+.mw .messageLine0,.mw .messageLine1{stroke:#64748b!important}
+.mw .messageText,.mw text.actor-label{fill:#1a202c!important}
+[id]{scroll-margin-top:20px}
+#sidebar{position:fixed;top:0;left:0;width:280px;height:100vh;background:#fff;border-right:1px solid var(--border);box-shadow:2px 0 8px rgba(0,0,0,.04);z-index:1000;display:flex;flex-direction:column;transition:transform .25s ease}
+#sidebar.collapsed{transform:translateX(-280px)}
+#sidebar .sb-header{padding:16px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#sidebar .sb-header h3{font-size:14px;color:var(--tx);margin:0;font-weight:700}
+#sidebar .sb-toggle{width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--tx2)}
+#sidebar .sb-toggle:hover{background:#f1f5f9;color:var(--ac)}
+#sidebar .sb-body{flex:1;overflow-y:auto;padding:12px 0}
+#sidebar .toc-group{margin-bottom:4px}
+#sidebar .toc-h2{display:flex;align-items:center;padding:7px 16px;font-size:13px;font-weight:600;color:var(--tx);cursor:pointer;text-decoration:none;transition:all .15s;gap:6px}
+#sidebar .toc-h2:hover{background:#f1f5f9;color:var(--ac)}
+#sidebar .toc-h2.active{color:var(--ac);background:var(--ac-l)}
+#sidebar .toc-arrow{font-size:10px;transition:transform .2s;width:14px;text-align:center;color:var(--tx3)}
+#sidebar .toc-arrow.open{transform:rotate(90deg)}
+#sidebar .toc-h2-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#sidebar .toc-children{overflow:hidden;max-height:0;transition:max-height .25s ease}
+#sidebar .toc-children.open{max-height:500px}
+#sidebar .toc-h3{display:block;padding:5px 16px 5px 36px;font-size:12px;color:var(--tx3);text-decoration:none;transition:all .15s}
+#sidebar .toc-h3:hover{color:var(--ac);background:#f8fafc}
+#sidebar .toc-h3.active{color:var(--ac);font-weight:600}
+#sb-float-btn{position:fixed;top:12px;left:12px;width:36px;height:36px;border-radius:8px;background:#fff;border:1px solid var(--border);box-shadow:var(--sh);cursor:pointer;z-index:999;display:none;align-items:center;justify-content:center;font-size:16px;color:var(--tx2)}
+#sb-float-btn:hover{background:var(--ac-l);color:var(--ac)}
+body.sb-open .c{margin-left:296px}
+body.sb-closed .c{margin-left:auto}
+body.sb-closed #sb-float-btn{display:flex}
+@media(max-width:768px){#sidebar{transform:translateX(-280px)}body.sb-open .c{margin-left:0}#sb-float-btn{display:flex}}
+</style>
+</head>
+<body class="sb-open">
+<div id="sidebar"><div class="sb-header"><h3>目录导航</h3><button class="sb-toggle" onclick="toggleSidebar()">✕</button></div><div class="sb-body" id="sb-body"></div></div>
+<button id="sb-float-btn" onclick="toggleSidebar()">☰</button>
+
+<div class="c">
+<div class="hero">
+  <h1>AI 故障诊断平台（RCA）— 技术设计方案</h1>
+  <div class="sub">Python FastAPI · Open WebUI Filter/Tool · 混合 Agent 架构 · Minimax LLM · 语义路由 Skills · 沙箱 Shell · Docker Compose</div>
+  <div class="meta"><span class="badge badge-new">v1.0</span> &nbsp;|&nbsp; 2026-05-20 &nbsp;|&nbsp; 需求：<a href="ai-rca-requirement.html">ai-rca-requirement.html</a></div>
+</div>
+
+<!-- 01 -->
+<div class="s" id="s1">
+  <h2>01. 技术选型</h2>
+  <table>
+    <tr><th>层面</th><th>选型</th><th>理由</th></tr>
+    <tr><td>前端 UI</td><td><strong>Open WebUI</strong></td><td>开源 Chat UI，自带文件上传/Markdown/用户管理/Filter 插件</td></tr>
+    <tr><td>后端</td><td>Python FastAPI</td><td>与 OpenWebUI 生态一致，AI/OCR 库丰富</td></tr>
+    <tr><td>大模型</td><td>Minimax M2.7</td><td>OpenAI 兼容 API，204K context，性价比高</td></tr>
+    <tr><td>OCR</td><td>Tesseract + pytesseract</td><td>开源免费，中英文支持，Docker 易集成</td></tr>
+    <tr><td>Skills 匹配</td><td>大模型语义路由</td><td>类 Claude Code 机制，比关键词匹配更智能精准</td></tr>
+    <tr><td>Skills 存储</td><td>Markdown 文件</td><td>类 Claude Code Skills，Git 友好，可直接编辑</td></tr>
+    <tr><td>业务存储</td><td>SQLite</td><td>聊天记录 + 审计日志，嵌入式零外部依赖</td></tr>
+    <tr><td>部署</td><td>Docker Compose</td><td>一键编排，5 分钟部署</td></tr>
+  </table>
+  <div class="ref-card">
+    <div class="ref-logo" style="background:#1a1a2e;color:#fff">OW</div>
+    <div class="ref-body">
+      <h4>Open WebUI — 前端基座</h4>
+      <p>开源 LLM Chat 平台。本系统通过其 <strong>Filter Function</strong>（inlet 拦截）和 <strong>Tool Function</strong> 机制集成，无需自研前端。</p>
+      <a class="ref-link" href="https://github.com/open-webui/open-webui" target="_blank">https://github.com/open-webui/open-webui</a>
+    </div>
+  </div>
+</div>
+
+<!-- 02 -->
+<div class="s" id="s2">
+  <h2>02. 架构设计</h2>
+  <h3>2.1 系统架构（混合 Agent）</h3>
+  <div class="mw"><pre class="mermaid">
+flowchart TB
+    subgraph UI ["Open WebUI (github.com/open-webui/open-webui)"]
+        Chat["Chat UI + 文件上传"]
+        Filter["Filter Function\nPhase 1 预处理"]
+        ToolFn["Tool Function\nPhase 2 工具调用"]
+    end
+    subgraph Backend ["RCA Backend (FastAPI)"]
+        API["REST API"]
+        Log["日志解析"]
+        OCR["OCR 识别"]
+        Skills["Skills 加载器"]
+        Prompt["Prompt 构建器"]
+        ToolAPI["工具执行 API\ngrep/context/time"]
+    end
+    subgraph Sandbox ["沙箱容器"]
+        Shell["隔离 Shell\nbash/python3"]
+    end
+    subgraph LLM ["大模型"]
+        Mini["Minimax M2.7\n204K Context"]
+    end
+    subgraph Store ["存储"]
+        MD["Skills\nMarkdown 文件"]
+        DB["SQLite\n聊天+审计"]
+    end
+
+    Chat -->|"消息+附件"| Filter
+    Filter -->|"预处理"| API
+    API --> Log
+    API --> OCR
+    Log --> Prompt
+    OCR --> Prompt
+    Skills -.->|"加载"| MD
+    Skills --> Prompt
+    Prompt -->|"增强 Prompt"| Filter
+    Filter --> Mini
+    Mini -->|"流式输出"| Chat
+    Mini -->|"调用工具"| ToolFn
+    ToolFn -->|"执行"| ToolAPI
+    ToolAPI -->|"run_script"| Shell
+    ToolFn -->|"结果返回"| Mini
+  </pre></div>
+
+  <h3>2.2 两阶段请求时序</h3>
+  <div class="mw"><pre class="mermaid">
+sequenceDiagram
+    participant U as 用户
+    participant OW as Open WebUI
+    participant F as Filter
+    participant T as Tool Function
+    participant B as RCA Backend
+    participant S as 沙箱
+    participant M as Minimax API
+
+    Note over U,M: Phase 1 — 快速预处理
+    U->>OW: 输入描述 + 上传文件
+    OW->>F: 触发 inlet
+    F->>B: POST /api/v1/analyze
+    B->>B: 日志解析 + OCR + Skills
+    B-->>F: enhanced_prompt
+    F->>M: 发送增强消息
+    M-->>OW: 首次诊断（流式）
+
+    Note over U,M: Phase 2 — Agent 工具调用（按需）
+    M->>T: 调用 grep_log / run_script
+    T->>B: POST /api/v1/tools/execute
+    B->>S: 执行命令（沙箱隔离）
+    S-->>B: stdout 结果
+    B-->>T: 返回结果
+    T-->>M: 工具结果注入上下文
+    M-->>OW: 更新诊断（流式）
+    OW-->>U: 实时展示
+  </pre></div>
+</div>
+
+<!-- 03 -->
+<div class="s" id="s3">
+  <h2>03. Skills 语义路由设计</h2>
+  <h3>3.1 核心思路</h3>
+  <div class="co co-t">
+    <strong>大模型语义路由 — 类 Claude Code agent_skills 机制</strong>
+    <p>不在后端做关键词匹配判断。而是：① 将所有 Skill 的 <code>description</code>（适用场景）+ 完整知识注入 System Prompt 形成"目录" → ② 大模型阅读故障上下文后自主选择激活哪些 Skills 的知识。</p>
+  </div>
+  <div class="mw"><pre class="mermaid">
+flowchart LR
+    A["加载全部 Skills"] --> B["组装 Skill 目录\n注入 System Prompt"]
+    B --> C["大模型阅读\n故障上下文"]
+    C --> D["自主选择\n激活 1~3 个 Skills"]
+    D --> E["引用对应知识\n输出诊断报告"]
+  </pre></div>
+
+  <h3>3.2 Skill 文件格式（Markdown）</h3>
+  <pre><code># skills/redis.md
+---
+id: redis
+name: Redis 故障诊断
+description: 当故障涉及 Redis 连接失败、主从切换、哨兵、
+  集群脑裂、OOM、持久化等场景时使用此 Skill。
+signal_words: [redis, 6379, sentinel]
+---
+
+## 排查步骤
+1. 检查进程状态 ...
+2. 查看 redis-server 日志 ...
+
+## 常见故障模式
+- **主从切换失败**: ...
+- **内存 OOM**: ...
+
+## 修复模板
+- `redis-cli SENTINEL failover mymaster`
+- ...</code></pre>
+  <p>使用 YAML Front Matter + Markdown 正文。<code>description</code> 是核心字段，供大模型语义路由判断。<code>signal_words</code> 仅在 Skill 数量很多时做粗粒度预筛选。文件可直接 Git 管理和手动编辑。</p>
+
+  <h3>3.3 内置 Skills(仅示例，待后续开发人员补充)</h3>
+  <table>
+    <tr><th>ID</th><th>名称</th><th>领域</th></tr>
+    <tr><td>redis</td><td>Redis 故障诊断</td><td>database</td></tr>
+    <tr><td>openApi</td><td>openApi故障诊断</td><td>openApi</td></tr>
+    <tr><td>openDoc</td><td>文档打开 故障诊断</td><td>openDoc</td></tr>
+    <tr><td>docker</td><td>Docker 容器诊断</td><td>container</td></tr>
+    <tr><td>java</td><td>Java 应用诊断</td><td>application</td></tr>
+    <tr><td>network</td><td>网络故障诊断</td><td>infrastructure</td></tr>
+  </table>
+
+  <h3>3.4 Skills 自进化 — 审核入库机制</h3>
+  <div class="co co-t">
+    <strong>模型建议 + 管理员审核 → 新 Skill 入库</strong>
+    <p>诊断结束时，模型评估本次故障是否涉及新的故障模式。如果当前 Skills 未覆盖，模型自动生成"Skill 建议草案"，待管理员审核后正式入库。</p>
+  </div>
+  <div class="mw"><pre class="mermaid">
+flowchart LR
+    A["模型诊断完成"] --> B{"故障模式是否\n已被 Skill 覆盖？"}
+    B -->|是| C["正常结束"]
+    B -->|否| D["生成 Skill 建议草案\n(id/name/description/steps)"]
+    D --> E["存入待审队列\n(SQLite pending_skills)"]
+    E --> F["管理员审核\nAdmin API/UI"]
+    F -->|通过| G["写入 skills/ 目录\n立即热加载生效"]
+    F -->|拒绝| H["标记为已拒绝\n记录原因"]
+  </pre></div>
+  <h4>System Prompt 中的自进化指引</h4>
+  <pre><code>## 知识沉淀
+诊断结束后，如果你发现本次故障模式是全新的（不在已有 Skills 中），
+请在报告末尾附加以下结构：
+---SKILL_SUGGESTION---
+id: 建议的 skill id
+name: 故障类型名称
+description: 适用场景描述（供语义路由用）
+investigation_steps: [排查步骤列表]
+fault_patterns: [故障模式]
+---END---</code></pre>
+  <h4>管理 API</h4>
+  <table>
+    <tr><th>端点</th><th>方法</th><th>说明</th></tr>
+    <tr><td><code>/api/v1/skills/pending</code></td><td>GET</td><td>获取待审核的 Skill 建议列表</td></tr>
+    <tr><td><code>/api/v1/skills/pending/{id}/approve</code></td><td>POST</td><td>通过审核，写入 skills 目录</td></tr>
+    <tr><td><code>/api/v1/skills/pending/{id}/reject</code></td><td>POST</td><td>拒绝，记录原因</td></tr>
+  </table>
+</div>
+
+<!-- 04 -->
+<div class="s" id="s4">
+  <h2>04. Open WebUI 集成方式</h2>
+  <h3>4.1 Filter Function (inlet)</h3>
+  <p>利用 Open WebUI 的 <a href="https://docs.openwebui.com/features/extensibility/plugin/functions/filter" target="_blank">Filter Function</a> 机制，在消息到达 LLM 前拦截并增强。伪代码：</p>
+  <pre><code># OpenWebUI Filter Plugin — 核心逻辑伪代码
+async def inlet(body, __files__):
+    user_msg = body.messages[-1].content
+    # 1. 调用 RCA Backend 预处理
+    result = await http_post(BACKEND + "/analyze", user_msg, __files__)
+    # 2. 注入增强 Prompt（含 Skills 目录）
+    body.messages.insert(0, system(result.enhanced_prompt.system))
+    body.messages[-1].content = result.enhanced_prompt.user
+    return body</code></pre>
+  <h3>4.2 Tool Function（Agent 工具调用）</h3>
+  <p>利用 Open WebUI 的 <a href="https://docs.openwebui.com/features/extensibility/plugin/functions/tool" target="_blank">Tool Function</a> 机制，让模型在需要时主动调用工具。伪代码：</p>
+  <pre><code># OpenWebUI Tool Plugin — 注册工具供模型调用
+class Tools:
+    def grep_log(self, pattern: str, file: str = "", context: int = 3):
+        """正则搜索已上传日志，返回匹配行+上下文"""
+        return call_backend("/tools/grep", {pattern, file, context})
+
+    def run_script(self, script: str, lang: str = "bash"):
+        """在沙箱中执行分析脚本（bash/python3）"""
+        return call_backend("/tools/exec", {script, lang})
+
+    def time_window(self, start: str, end: str, level: str = ""):
+        """按时间范围筛选日志条目"""
+        return call_backend("/tools/time_window", {start, end, level})</code></pre>
+
+  <h3>4.3 模型配置</h3>
+  <p>在 Open WebUI <code>Admin → Connections</code> 中添加 Minimax 为 OpenAI 兼容后端：</p>
+  <ul>
+    <li>URL: <code>https://api.minimaxi.com/v1</code>（国内）或 <code>https://api.minimax.io/v1</code>（海外）</li>
+    <li>模型：<code>MiniMax-M2.7</code>（可切换为 DeepSeek/GLM-4/GPT-4o 等）</li>
+  </ul>
+</div>
+
+<!-- 05 -->
+<div class="s" id="s5">
+  <h2>05. 后端 API 设计</h2>
+  <h3>5.1 预处理 & 管理 API</h3>
+  <table>
+    <tr><th>端点</th><th>方法</th><th>说明</th></tr>
+    <tr><td><code>/api/v1/analyze</code></td><td>POST</td><td>Phase 1：接收文件+描述，返回增强 Prompt</td></tr>
+    <tr><td><code>/api/v1/skills</code></td><td>GET</td><td>列出所有 Skills</td></tr>
+    <tr><td><code>/api/v1/skills</code></td><td>POST</td><td>新增自定义 Skill</td></tr>
+    <tr><td><code>/api/v1/ocr</code></td><td>POST</td><td>独立 OCR 接口</td></tr>
+    <tr><td><code>/health</code></td><td>GET</td><td>健康检查</td></tr>
+  </table>
+  <h3>5.2 工具执行 API（Phase 2 Agent 调用）</h3>
+  <table>
+    <tr><th>端点</th><th>方法</th><th>说明</th></tr>
+    <tr><td><code>/api/v1/tools/grep</code></td><td>POST</td><td>正则搜索日志，返回匹配行+上下文</td></tr>
+    <tr><td><code>/api/v1/tools/context</code></td><td>POST</td><td>获取指定行号前后 N 行</td></tr>
+    <tr><td><code>/api/v1/tools/time_window</code></td><td>POST</td><td>按时间范围筛选日志</td></tr>
+    <tr><td><code>/api/v1/tools/count</code></td><td>POST</td><td>错误模式聚合统计</td></tr>
+    <tr><td><code>/api/v1/tools/files</code></td><td>GET</td><td>列出会话文件</td></tr>
+    <tr><td><code>/api/v1/tools/exec</code></td><td>POST</td><td>沙箱执行脚本（bash/python3），受限环境</td></tr>
+  </table>
+  <h4>POST /api/v1/analyze 响应结构</h4>
+  <pre><code>{
+  "status": "success",
+  "data": {
+    "preprocessed": {
+      "log_summary": { "total_lines": 52340, "error_count": 127,
+        "top_errors": [{"pattern": "ECONNREFUSED...", "count": 89}] },
+      "ocr_results": [{"file": "err.png", "text": "..."}]
+    },
+    "enhanced_prompt": {
+      "system": "你是运维诊断专家...[Skills 目录]...",
+      "user": "## 故障描述\n...\n## 日志摘要\n..."
+    }
+  }
+}</code></pre>
+</div>
+
+<!-- 06 -->
+<div class="s" id="s6">
+  <h2>06. Agent 沙箱设计</h2>
+  <h3>6.1 架构</h3>
+  <p><code>run_script</code> 工具通过独立 Docker 容器执行用户脚本，与宿主隔离。</p>
+  <div class="mw"><pre class="mermaid">
+flowchart LR
+    Model["大模型调用\nrun_script"] --> Backend["RCA Backend"]
+    Backend --> Create["创建沙箱容器\n挂载会话文件"]
+    Create --> Exec["执行脚本\n超时 30s"]
+    Exec --> Collect["收集 stdout\n截断 50KB"]
+    Collect --> Return["返回结果"]
+  </pre></div>
+  <h3>6.2 安全约束</h3>
+  <table>
+    <tr><th>约束</th><th>实现方式</th></tr>
+    <tr><td>网络隔离</td><td><code>--network none</code></td></tr>
+    <tr><td>文件系统</td><td><code>--read-only</code> + tmpfs 工作目录 + 会话文件只读挂载</td></tr>
+    <tr><td>命令白名单</td><td>容器内仅安装 <code>grep/awk/sed/sort/uniq/wc/head/tail/cat/python3/jq</code></td></tr>
+    <tr><td>资源限制</td><td>CPU 0.5 核、内存 256MB、磁盘写入 100MB</td></tr>
+    <tr><td>单次超时</td><td>30s 硬超时 kill（单个工具执行）</td></tr>
+    <tr><td>诊断总超时</td><td>300s（5min）整体诊断兜底，超时强制基于已有信息输出报告</td></tr>
+    <tr><td>输出截断</td><td>stdout ≤ 50KB，超长截断并标注</td></tr>
+    <tr><td>审计日志</td><td>所有执行记录（脚本内容 + 结果）持久化存储</td></tr>
+    <tr><td>管理员开关</td><td>可通过环境变量 <code>ENABLE_SANDBOX_SHELL=false</code> 禁用</td></tr>
+  </table>
+  <h3>6.3 Prompt 工具指引 & 领域约束</h3>
+  <p>System Prompt 中增加工具使用说明 + 领域边界约束：</p>
+  <pre><code>## 领域约束（严格遵守）
+你是专业运维故障诊断助手。仅回答与以下领域相关的故障问题：
+{已注册 Skills 列表及 description}
+
+若用户问题不属于上述任何领域，直接回复：
+"抱歉，当前故障类型不在系统支持范围内。已支持领域：[列表]"
+不要尝试回答超出领域的问题。
+
+## 可用工具
+- grep_log(pattern, file?, context?): 正则搜索日志
+- get_context(file, line, before?, after?): 查看某行上下文
+- time_window(start, end, level?): 按时间范围筛选
+- count_errors(file?, top_n?): 聚合统计错误
+- list_files(): 查看可用文件
+- run_script(script, lang?): 执行分析脚本(bash/python3)
+
+## 工作流程
+1. 先判断问题是否在支持领域内
+2. 基于预处理摘要给出初步诊断
+3. 证据不足时主动调用工具获取更多信息
+4. 每次工具调用后更新分析判断
+5. 最终输出结构化诊断报告</code></pre>
+</div>
+
+<!-- 07 -->
+<div class="s" id="s7">
+  <h2>07. Docker 部署方案</h2>
+  <h3>7.1 Docker Compose</h3>
+  <pre><code># docker-compose.yml
+services:
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    ports: ["3000:8080"]
+    environment:
+      OPENAI_API_BASE_URL: https://api.minimaxi.com/v1
+      OPENAI_API_KEY: ${MINIMAX_API_KEY}
+    depends_on: [rca-backend]
+
+  rca-backend:
+    build: ./backend
+    ports: ["8000:8000"]
+    environment:
+      SKILLS_DIR: /app/skills
+      MAX_FILE_SIZE_MB: "50"
+      ENABLE_SANDBOX_SHELL: "true"
+      SANDBOX_TIMEOUT: "30"
+      SANDBOX_MAX_OUTPUT: "51200"
+    volumes:
+      - ./backend/app/skills/builtin:/app/skills/builtin:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - rca-sessions:/app/sessions
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+
+  rca-sandbox:
+    build: ./sandbox
+    read_only: true
+    network_mode: none
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256M }
+    tmpfs: ["/tmp:size=100M"]
+
+volumes:
+  rca-sessions:</code></pre>
+
+  <h3>7.2 快速启动</h3>
+  <pre><code># 1. 克隆 & 配置
+git clone https://github.com/your-org/ai-rca-platform.git && cd ai-rca-platform
+cp .env.example .env   # 填入 MINIMAX_API_KEY
+
+# 2. 一键启动
+docker compose up -d
+
+# 3. 访问
+# Web UI:   http://localhost:3000
+# API Docs: http://localhost:8000/docs
+
+# 4. 在 OpenWebUI Admin 中导入 Filter 插件并启用</code></pre>
+
+  <h3>7.3 环境变量</h3>
+  <table>
+    <tr><th>变量</th><th>说明</th><th>默认值</th></tr>
+    <tr><td><code>MINIMAX_API_KEY</code></td><td>大模型 API Key</td><td>必填</td></tr>
+    <tr><td><code>MINIMAX_API_BASE</code></td><td>API 地址</td><td>https://api.minimaxi.com/v1</td></tr>
+    <tr><td><code>MINIMAX_MODEL</code></td><td>模型名</td><td>MiniMax-M2.7</td></tr>
+    <tr><td><code>MAX_FILE_SIZE_MB</code></td><td>文件大小限制</td><td>50</td></tr>
+    <tr><td><code>ENABLE_SANDBOX_SHELL</code></td><td>是否启用沙箱 Shell（管理员开关）</td><td>true</td></tr>
+    <tr><td><code>SANDBOX_TIMEOUT</code></td><td>脚本执行超时（秒）</td><td>30</td></tr>
+    <tr><td><code>SANDBOX_MAX_OUTPUT</code></td><td>stdout 截断阈值（字节）</td><td>51200</td></tr>
+    <tr><td><code>AGENT_MAX_TOOL_CALLS</code></td><td>单会话最大工具调用次数</td><td>20</td></tr>
+    <tr><td><code>AGENT_TOTAL_TIMEOUT</code></td><td>诊断总时间上限（秒），超时强制输出报告</td><td>300</td></tr>
+  </table>
+</div>
+
+<!-- 08 -->
+<div class="s" id="s8">
+  <h2>08. 风险与对策</h2>
+  <table>
+    <tr><th>风险</th><th>对策</th></tr>
+    <tr><td>超长日志超 Token</td><td>智能裁剪：保留 ERROR + 堆栈 + 故障窗口，分片处理</td></tr>
+    <tr><td>OCR 准确率低</td><td>图片预处理增强；后续可接入视觉大模型直接读图</td></tr>
+    <tr><td>模型 API 不可用</td><td>配置备用端点（DeepSeek/GLM-4），环境变量切换</td></tr>
+    <tr><td>文件安全</td><td>类型白名单 + 临时目录 + 自动清理 + 大小限制</td></tr>
+    <tr><td>沙箱逃逸</td><td>--network none + --read-only + 命令白名单 + seccomp 限制</td></tr>
+    <tr><td>工具调用死循环</td><td>单次会话工具调用次数上限（默认 20 次）</td></tr>
+    <tr><td>脚本 Token 爆炸</td><td>输出截断 50KB + 模型提示"结果已截断"</td></tr>
+  </table>
+</div>
+
+<!-- 09 -->
+<div class="s" id="s9">
+  <h2>09. 后续扩展</h2>
+  <ul>
+    <li>Prometheus 告警自动触发诊断</li>
+    <li>Webhook 推送（钉钉/飞书/企微）</li>
+    <li>视觉大模型替代 Tesseract OCR</li>
+    <li>故障案例库沉淀 + 相似故障推荐</li>
+    <li>RAG 补充层（非结构化 Wiki 知识）</li>
+  </ul>
+</div>
+
+<div style="text-align:center;padding:32px 0;color:var(--tx3);font-size:13px">
+  <p>AI-RCA Platform · Technical Design v1.0 · 2026-05-20</p>
+</div>
+</div>
+
+<script>
+mermaid.initialize({startOnLoad:true,theme:'base',themeVariables:{background:'#ffffff',primaryColor:'#dbeafe',primaryTextColor:'#1a202c',primaryBorderColor:'#2563eb',lineColor:'#64748b',textColor:'#1a202c',actorBkg:'#dbeafe',actorBorder:'#2563eb',actorTextColor:'#1a202c',signalColor:'#1a202c'},flowchart:{useMaxWidth:true,htmlLabels:true,curve:'basis'},sequence:{useMaxWidth:true,mirrorActors:false}});
+</script>
+<script>
+(function(){var body=document.body,sidebar=document.getElementById('sidebar'),sbBody=document.getElementById('sb-body');if(!sidebar||!sbBody)return;document.querySelectorAll('.s[id]').forEach(function(sec){var h2=sec.querySelector('h2');if(!h2)return;var grp=document.createElement('div');grp.className='toc-group';var h2Link=document.createElement('a');h2Link.className='toc-h2';h2Link.href='#'+sec.id;h2Link.dataset.target=sec.id;var arrow=document.createElement('span');arrow.className='toc-arrow';arrow.textContent='\u25B6';var txt=document.createElement('span');txt.className='toc-h2-text';txt.textContent=h2.textContent;h2Link.appendChild(arrow);h2Link.appendChild(txt);grp.appendChild(h2Link);var h3s=sec.querySelectorAll('h3');if(h3s.length>0){var children=document.createElement('div');children.className='toc-children';h3s.forEach(function(h3){if(!h3.id)h3.id='h3-'+Math.random().toString(36).substr(2,6);var l=document.createElement('a');l.className='toc-h3';l.href='#'+h3.id;l.textContent=h3.textContent;l.dataset.target=h3.id;children.appendChild(l);});grp.appendChild(children);h2Link.addEventListener('click',function(e){e.preventDefault();document.getElementById(sec.id).scrollIntoView({behavior:'smooth'});if(!children.classList.contains('open')){children.classList.add('open');arrow.classList.add('open');}else{children.classList.remove('open');arrow.classList.remove('open');}});}else{h2Link.addEventListener('click',function(e){e.preventDefault();document.getElementById(sec.id).scrollIntoView({behavior:'smooth'});});arrow.style.visibility='hidden';}sbBody.appendChild(grp);});window.toggleSidebar=function(){if(body.classList.contains('sb-open')){body.classList.remove('sb-open');body.classList.add('sb-closed');sidebar.classList.add('collapsed');}else{body.classList.remove('sb-closed');body.classList.add('sb-open');sidebar.classList.remove('collapsed');}};})();
+</script>
+</body>
+</html>

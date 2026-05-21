@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 故障诊断平台（RCA）— 产品需求规格说明</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+:root{--bg:#f8f9fa;--card:#fff;--border:#e2e8f0;--tx:#1a202c;--tx2:#4a5568;--tx3:#718096;--ac:#7c3aed;--ac-l:#f5f3ff;--gn:#16a34a;--gn-l:#f0fdf4;--or:#ea580c;--or-l:#fff7ed;--rd:#dc2626;--rd-l:#fef2f2;--pu:#2563eb;--pu-l:#eff6ff;--tl:#0d9488;--tl-l:#f0fdfa;--cb:#1e293b;--ct:#e2e8f0;--sh:0 1px 3px rgba(0,0,0,.08)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--tx);line-height:1.75;font-size:15px}
+.c{max-width:2140px;margin:0 auto;padding:24px}
+.hero{background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 50%,#5b21b6 100%);color:#fff;padding:48px 40px;border-radius:16px;margin-bottom:32px;box-shadow:0 10px 25px rgba(124,58,237,.25)}
+.hero h1{font-size:28px;font-weight:700;margin-bottom:8px}
+.hero .sub{font-size:16px;opacity:.9;margin-bottom:16px}
+.hero .meta{font-size:13px;opacity:.7}
+.hero .meta a{color:#e9d5ff;text-decoration:underline}
+.s{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px;margin-bottom:24px;box-shadow:var(--sh)}
+.s h2{font-size:20px;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid var(--ac);display:flex;align-items:center;gap:10px}
+.s h3{font-size:16px;color:var(--ac);margin:22px 0 10px;padding-left:12px;border-left:3px solid var(--ac)}
+.s p,.s li{color:var(--tx2);margin-bottom:10px}
+.s ul,.s ol{padding-left:22px}
+table{width:100%;border-collapse:collapse;margin:12px 0 18px;font-size:13.5px}
+th{background:#f1f5f9;color:var(--tx);font-weight:600;text-align:left;padding:10px 14px;border-bottom:2px solid var(--border);white-space:nowrap}
+td{padding:9px 14px;border-bottom:1px solid #f1f5f9;color:var(--tx2);vertical-align:top}
+tr:hover td{background:#f8fafc}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono','Fira Code',Consolas,monospace;font-size:13px;color:#d63384}
+pre{background:var(--cb);color:var(--ct);padding:18px 22px;border-radius:8px;overflow-x:auto;font-family:'JetBrains Mono',Consolas,monospace;font-size:13px;line-height:1.65;margin:12px 0 16px}
+pre code{background:none;padding:0;color:inherit}
+.tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
+.tag-green{background:var(--gn-l);color:var(--gn)}
+.tag-orange{background:var(--or-l);color:var(--or)}
+.tag-blue{background:var(--pu-l);color:var(--pu)}
+.tag-purple{background:var(--ac-l);color:var(--ac)}
+.co{padding:16px 20px;border-radius:8px;margin:14px 0;font-size:14px}
+.co-i{background:var(--ac-l);border-left:4px solid var(--ac)}
+.co-w{background:var(--or-l);border-left:4px solid var(--or)}
+.co-t{background:var(--gn-l);border-left:4px solid var(--gn)}
+.co strong{display:block;margin-bottom:4px}
+.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700;margin-left:6px}
+.badge-p0{background:#fee2e2;color:#991b1b}
+.badge-p1{background:#fef3c7;color:#92400e}
+.badge-p2{background:#dbeafe;color:#1d4ed8}
+.ref-card{border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin:12px 0;background:#fafbfc;display:flex;gap:16px;align-items:flex-start}
+.ref-card .ref-logo{width:48px;height:48px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.ref-card .ref-body{flex:1}
+.ref-card .ref-body h4{margin:0 0 4px;font-size:14px;color:var(--tx)}
+.ref-card .ref-body p{margin:0 0 4px;font-size:13px;color:var(--tx2)}
+.ref-card .ref-body .ref-link{font-size:12px;color:var(--ac);text-decoration:none}
+.ref-card .ref-body .ref-link:hover{text-decoration:underline}
+.mw{background:#fff!important;padding:16px;border-radius:8px;margin:16px 0;border:1px solid var(--border);text-align:center;position:relative;overflow:hidden}
+.mw pre{background:#fff!important}
+.mw svg{background:#fff!important}
+.mw .node rect,.mw .node polygon,.mw .node circle{fill:#fff!important}
+.mw .cluster rect{fill:#f8fafc!important;stroke:var(--border)!important}
+.mw .nodeLabel,.mw .edgeLabel,.mw .label{color:#1a202c!important;fill:#1a202c!important}
+.mw .edgePath .path{stroke:#64748b!important}
+[id]{scroll-margin-top:20px}
+#sidebar{position:fixed;top:0;left:0;width:280px;height:100vh;background:#fff;border-right:1px solid var(--border);box-shadow:2px 0 8px rgba(0,0,0,.04);z-index:1000;display:flex;flex-direction:column;transition:transform .25s ease}
+#sidebar.collapsed{transform:translateX(-280px)}
+#sidebar .sb-header{padding:16px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#sidebar .sb-header h3{font-size:14px;color:var(--tx);margin:0;font-weight:700}
+#sidebar .sb-toggle{width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--tx2)}
+#sidebar .sb-toggle:hover{background:#f1f5f9;color:var(--ac)}
+#sidebar .sb-body{flex:1;overflow-y:auto;padding:12px 0}
+#sidebar .toc-group{margin-bottom:4px}
+#sidebar .toc-h2{display:flex;align-items:center;padding:7px 16px;font-size:13px;font-weight:600;color:var(--tx);cursor:pointer;text-decoration:none;transition:all .15s;gap:6px}
+#sidebar .toc-h2:hover{background:#f1f5f9;color:var(--ac)}
+#sidebar .toc-h2.active{color:var(--ac);background:var(--ac-l)}
+#sidebar .toc-arrow{font-size:10px;transition:transform .2s;width:14px;text-align:center;color:var(--tx3)}
+#sidebar .toc-arrow.open{transform:rotate(90deg)}
+#sidebar .toc-h2-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#sidebar .toc-children{overflow:hidden;max-height:0;transition:max-height .25s ease}
+#sidebar .toc-children.open{max-height:500px}
+#sidebar .toc-h3{display:block;padding:5px 16px 5px 36px;font-size:12px;color:var(--tx3);text-decoration:none;transition:all .15s}
+#sidebar .toc-h3:hover{color:var(--ac);background:#f8fafc}
+#sidebar .toc-h3.active{color:var(--ac);font-weight:600}
+#sb-float-btn{position:fixed;top:12px;left:12px;width:36px;height:36px;border-radius:8px;background:#fff;border:1px solid var(--border);box-shadow:var(--sh);cursor:pointer;z-index:999;display:none;align-items:center;justify-content:center;font-size:16px;color:var(--tx2)}
+#sb-float-btn:hover{background:var(--ac-l);color:var(--ac)}
+body.sb-open .c{margin-left:296px}
+body.sb-closed .c{margin-left:auto}
+body.sb-closed #sb-float-btn{display:flex}
+@media(max-width:768px){#sidebar{transform:translateX(-280px)}body.sb-open .c{margin-left:0}#sb-float-btn{display:flex}}
+</style>
+</head>
+<body class="sb-open">
+<div id="sidebar"><div class="sb-header"><h3>目录导航</h3><button class="sb-toggle" onclick="toggleSidebar()">✕</button></div><div class="sb-body" id="sb-body"></div></div>
+<button id="sb-float-btn" onclick="toggleSidebar()">☰</button>
+
+<div class="c">
+<div class="hero">
+  <h1>AI 故障诊断平台（RCA）— 产品需求规格说明</h1>
+  <div class="sub">基于 OpenWebUI + 大模型语义路由 Skills + 日志/OCR 预处理</div>
+  <div class="meta">v1.0 &nbsp;|&nbsp; 2026-05-20 &nbsp;|&nbsp; 配套：<a href="ai-rca-technical.html">技术方案文档</a></div>
+</div>
+
+<div class="s" id="s1">
+  <h2>01. 需求背景与目标</h2>
+  <h3>1.1 痛点</h3>
+  <ul>
+    <li>日志分散在多节点，人工关联耗时；故障知识存在于少数专家脑中</li>
+    <li>报错截图需人工识别文字；缺乏标准化排查流程，MTTR 居高不下</li>
+  </ul>
+  <h3>1.2 定位</h3>
+  <div class="co co-i">
+    <strong>企业内部 AI 运维诊断助手 / Root Cause Analysis（RCA）系统</strong>
+    <p>核心价值：<strong>领域化 Skills（语义路由）+ 日志故障分析</strong>。区别于通用 RAG 知识库。</p>
+  </div>
+  <h3>1.3 目标</h3>
+  <table>
+    <tr><th>指标</th><th>目标</th></tr>
+    <tr><td>故障定位时间</td><td>缩短 60%（2h → 45min）</td></tr>
+    <tr><td>首次诊断准确率</td><td>≥ 70%</td></tr>
+    <tr><td>部署复杂度</td><td>Docker Compose 一键启动，5 分钟内完成</td></tr>
+  </table>
+  <h3>1.4 参考项目</h3>
+  <div class="ref-card">
+    <div class="ref-logo" style="background:#1a1a2e;color:#fff;font-size:14px;font-weight:700">OW</div>
+    <div class="ref-body">
+      <h4>Open WebUI</h4>
+      <p>开源 Chat UI 平台，作为本系统的前端基座。提供对话界面、文件上传、Markdown 渲染、用户管理、Filter/Tool 插件机制。</p>
+      <a class="ref-link" href="https://github.com/open-webui/open-webui" target="_blank">https://github.com/open-webui/open-webui</a>
+    </div>
+  </div>
+</div>
+
+<div class="s" id="s2">
+  <h2>02. 用户场景</h2>
+  <table>
+    <tr><th>角色</th><th>场景</th><th>期望</th></tr>
+    <tr><td>运维工程师</td><td>凌晨收到告警，上传多节点日志 + 描述"Redis 集群不可用"</td><td>系统输出根因 + 修复命令 + 时间线</td></tr>
+    <tr><td>开发工程师</td><td>收到报错截图（Java 堆栈），上传截图 + 描述"登录接口 500"</td><td>OCR 识别 → 异常分析 → 修复建议</td></tr>
+    <tr><td>技术主管</td><td>需要标准化故障报告归档</td><td>结构化 Markdown 报告（根因/影响/预防）</td></tr>
+  </table>
+</div>
+
+<div class="s" id="s3">
+  <h2>03. 功能需求</h2>
+  <h3>3.1 信息采集</h3>
+  <table>
+    <tr><th>能力</th><th>说明</th><th>优先级</th></tr>
+    <tr><td>文本描述</td><td>对话框输入故障描述</td><td><span class="badge badge-p0">P0</span></td></tr>
+    <tr><td>日志文件</td><td><code>.log/.txt/.out</code>，≤ 50MB</td><td><span class="badge badge-p0">P0</span></td></tr>
+    <tr><td>报错截图</td><td><code>.png/.jpg</code>，OCR 识别</td><td><span class="badge badge-p0">P0</span></td></tr>
+    <tr><td>压缩包</td><td><code>.zip/.tar.gz</code>，自动解压</td><td><span class="badge badge-p1">P1</span></td></tr>
+  </table>
+  <h3>3.2 智能预处理</h3>
+  <ul>
+    <li>日志：识别时间戳/级别，提取 ERROR + 堆栈，聚合去重</li>
+    <li>截图：OCR 文字识别（中英文），提取报错关键信息</li>
+    <li>智能裁剪：超长日志保留故障窗口 + ERROR 全量，控制 Token 预算</li>
+  </ul>
+  <h3>3.3 领域知识 Skills（语义路由）</h3>
+  <div class="co co-t">
+    <strong>大模型语义路由（类 Claude Code Skills 机制）</strong>
+    <p>每个 Skill 有 <code>description</code> 描述其适用场景。所有 Skill 描述注入 System Prompt 形成"目录"，由大模型自行判断当前场景激活哪些 Skills。不依赖关键词精确匹配。</p>
+  </div>
+  <ul>
+    <li>内置 8 个 Skills：Redis / MongoDB / MySQL / Docker / K8s / Java / Node.js / Network</li>
+    <li>每个 Skill 包含：适用场景描述 · 排查步骤 · 常见故障模式 · 修复模板</li>
+    <li>支持热加载和管理 API</li>
+    <li><strong>领域边界</strong>：若用户问题不在任何 Skill 覆盖范围内，系统直接回复"当前不支持该领域的故障诊断"，不做通用回答</li>
+    <li><strong>自进化</strong>：诊断完成后模型可建议新的 Skill 草案，管理员审核通过后入库，系统知识持续积累</li>
+  </ul>
+  <div class="co co-w">
+    <strong>非 Skills 覆盖范围 → 拒绝回答</strong>
+    <p>本系统定位为领域专用诊断工具，非通用聊天机器人。当模型判断用户问题与所有已注册 Skills 的 <code>description</code> 均不相关时，回复标准拒绝语："抱歉，当前故障类型不在系统支持范围内。已支持领域：[领域列表]"。可通过 System Prompt 严格约束。</p>
+  </div>
+  <h3>3.4 Agent 工具调用（深入探索）</h3>
+  <div class="co co-i">
+    <strong>混合架构：快速预处理 + Agent 工具迭代（类 Cursor Agent 模式）</strong>
+    <p>首次分析基于预处理摘要快速给出诊断；如果模型判断证据不足，可<strong>主动调用工具</strong>深入探索日志——grep 搜索、获取上下文、按时间筛选、编写脚本统计，类似 Cursor Agent 的自主探索能力。</p>
+  </div>
+  <h4>预定义安全工具</h4>
+  <table>
+    <tr><th>工具</th><th>说明</th><th>优先级</th></tr>
+    <tr><td><code>grep_log</code></td><td>正则搜索已上传日志，返回匹配行 + 上下文</td><td><span class="badge badge-p0">P0</span></td></tr>
+    <tr><td><code>get_context</code></td><td>获取指定行号前后 N 行上下文</td><td><span class="badge badge-p0">P0</span></td></tr>
+    <tr><td><code>time_window</code></td><td>按时间范围筛选日志条目</td><td><span class="badge badge-p0">P0</span></td></tr>
+    <tr><td><code>count_errors</code></td><td>聚合统计错误模式（Top N）</td><td><span class="badge badge-p0">P0</span></td></tr>
+    <tr><td><code>list_files</code></td><td>列出当前会话已上传的所有文件</td><td><span class="badge badge-p0">P0</span></td></tr>
+  </table>
+  <h4>沙箱 Shell（灵活分析）</h4>
+  <table>
+    <tr><th>工具</th><th>说明</th><th>优先级</th></tr>
+    <tr><td><code>run_script</code></td><td>在安全沙箱中执行 Bash/Python 脚本，可自由组合 grep/awk/sort 等命令，或编写统计脚本</td><td><span class="badge badge-p1">P1</span></td></tr>
+  </table>
+  <ul>
+    <li>沙箱限制：仅能访问本次会话上传文件，禁止网络、超时 30s、输出 ≤ 50KB</li>
+    <li>命令白名单：<code>grep</code> / <code>awk</code> / <code>sed</code> / <code>sort</code> / <code>uniq</code> / <code>wc</code> / <code>head</code> / <code>tail</code> / <code>cat</code> / <code>python3</code> / <code>jq</code></li>
+    <li>模型可自行决定写统计脚本（如错误频率直方图、跨文件关联分析）</li>
+  </ul>
+
+  <h3>3.5 AI 诊断 & 报告输出</h3>
+  <ul>
+    <li>流式输出结构化 Markdown 报告：故障概况 → 三层根因 → 排查路径 → 时间线 → 修复建议 → 影响范围 → 预防措施</li>
+    <li>支持多轮追问，上下文保持；追问时模型可继续调用工具深入分析</li>
+  </ul>
+</div>
+
+<div class="s" id="s4">
+  <h2>04. 交互流程</h2>
+  <h3>4.1 两阶段混合诊断流程</h3>
+  <div class="mw"><pre class="mermaid">
+flowchart LR
+    A["用户输入\n描述+文件"] --> B["Phase 1\n预处理+Skills注入"]
+    B --> C["大模型首次分析"]
+    C --> D{"证据充分?"}
+    D -->|是| E["输出报告"]
+    D -->|否| F["Phase 2\n调用工具深入"]
+    F --> G["grep/脚本/时间筛选"]
+    G --> H["观察结果"]
+    H --> D
+    E --> I{"追问?"}
+    I -->|是| C
+    I -->|否| J["结束"]
+  </pre></div>
+  <h3>4.2 文件处理分支</h3>
+  <div class="mw"><pre class="mermaid">
+flowchart TD
+    Upload["上传文件"] --> Detect{"类型"}
+    Detect -->|日志| Parse["解析: 级别/堆栈/聚合"]
+    Detect -->|压缩包| Unzip["解压"] --> Parse
+    Detect -->|截图| OCR["OCR 识别"]
+    Parse --> Build["构建增强 Prompt"]
+    OCR --> Build
+  </pre></div>
+  <h3>4.3 Prompt 结构（语义路由）</h3>
+  <pre><code>System Prompt:
+  ├── 角色 + 输出格式要求
+  └── Skills 目录（各 Skill 的 description + 排查知识）
+      → 模型自主选择相关 Skill 引用
+
+User Prompt:
+  ├── 故障描述
+  ├── 日志摘要（ERROR + 堆栈 + 高频模式）
+  └── OCR 识别结果</code></pre>
+</div>
+
+<div class="s" id="s5">
+  <h2>05. 非功能需求</h2>
+  <table>
+    <tr><th>维度</th><th>要求</th></tr>
+    <tr><td>性能</td><td>预处理 ≤ 3s（不含 LLM 推理）</td></tr>
+    <tr><td>部署</td><td>Docker Compose 一键启动，无需外部数据库（SQLite 嵌入式）</td></tr>
+    <tr><td>存储</td><td>Skills 使用 Markdown 文件；聊天记录和审计日志使用 SQLite</td></tr>
+    <tr><td>安全</td><td>Agent 沙箱隔离 + 上传文件临时目录（每月初清理）+ API Key 环境变量注入</td></tr>
+    <tr><td>扩展</td><td>Skills 热加载；模型可切换（OpenAI 兼容接口）</td></tr>
+  </table>
+</div>
+
+<div class="s" id="s6">
+  <h2>06. 迭代计划</h2>
+  <table>
+    <tr><th>阶段</th><th>核心交付</th><th>周期</th></tr>
+    <tr><td><span class="tag tag-green">MVP</span></td><td>日志解析 + OCR + 3 Skills + 预定义工具（grep/context/time_window）+ Docker 部署</td><td>2 周</td></tr>
+    <tr><td><span class="tag tag-orange">V1.1</span></td><td>沙箱 Shell（run_script）+ 全 8 Skills + 压缩包 + 管理 API</td><td>2 周</td></tr>
+    <tr><td><span class="tag tag-blue">V1.2</span></td><td>历史管理 + 报告导出 + 工具调用审计 + 监控面板</td><td>2 周</td></tr>
+  </table>
+</div>
+
+<div style="text-align:center;padding:32px 0;color:var(--tx3);font-size:13px">
+  <p>AI-RCA Platform · Requirements Spec v1.0 · 2026-05-20</p>
+</div>
+</div>
+
+<script>
+mermaid.initialize({startOnLoad:true,theme:'base',themeVariables:{background:'#ffffff',primaryColor:'#dbeafe',primaryTextColor:'#1a202c',primaryBorderColor:'#2563eb',lineColor:'#64748b',textColor:'#1a202c'},flowchart:{useMaxWidth:true,htmlLabels:true,curve:'basis'}});
+</script>
+<script>
+(function(){var body=document.body,sidebar=document.getElementById('sidebar'),sbBody=document.getElementById('sb-body');if(!sidebar||!sbBody)return;document.querySelectorAll('.s[id]').forEach(function(sec){var h2=sec.querySelector('h2');if(!h2)return;var grp=document.createElement('div');grp.className='toc-group';var h2Link=document.createElement('a');h2Link.className='toc-h2';h2Link.href='#'+sec.id;h2Link.dataset.target=sec.id;var arrow=document.createElement('span');arrow.className='toc-arrow';arrow.textContent='\u25B6';var txt=document.createElement('span');txt.className='toc-h2-text';txt.textContent=h2.textContent;h2Link.appendChild(arrow);h2Link.appendChild(txt);grp.appendChild(h2Link);var h3s=sec.querySelectorAll('h3');if(h3s.length>0){var children=document.createElement('div');children.className='toc-children';h3s.forEach(function(h3){if(!h3.id)h3.id='h3-'+Math.random().toString(36).substr(2,6);var l=document.createElement('a');l.className='toc-h3';l.href='#'+h3.id;l.textContent=h3.textContent;l.dataset.target=h3.id;children.appendChild(l);});grp.appendChild(children);h2Link.addEventListener('click',function(e){e.preventDefault();document.getElementById(sec.id).scrollIntoView({behavior:'smooth'});if(!children.classList.contains('open')){children.classList.add('open');arrow.classList.add('open');}else{children.classList.remove('open');arrow.classList.remove('open');}});}else{h2Link.addEventListener('click',function(e){e.preventDefault();document.getElementById(sec.id).scrollIntoView({behavior:'smooth'});});arrow.style.visibility='hidden';}sbBody.appendChild(grp);});window.toggleSidebar=function(){if(body.classList.contains('sb-open')){body.classList.remove('sb-open');body.classList.add('sb-closed');sidebar.classList.add('collapsed');}else{body.classList.remove('sb-closed');body.classList.add('sb-open');sidebar.classList.remove('collapsed');}};})();
+</script>
+</body>
+</html>

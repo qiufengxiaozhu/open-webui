@@ -10,7 +10,11 @@ import aiohttp
 from aiocache import cached
 
 
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+try:
+    from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+except ImportError:
+    DefaultAzureCredential = None
+    get_bearer_token_provider = None
 
 from fastapi import Depends, HTTPException, Request, APIRouter, status
 from fastapi.responses import (

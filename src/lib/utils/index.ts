@@ -1746,13 +1746,8 @@ export const extractContentFromFile = async (file: File) => {
 		});
 	}
 
-	async function extractDocxText(file: File) {
-		const [arrayBuffer, { default: mammoth }] = await Promise.all([
-			file.arrayBuffer(),
-			import('mammoth')
-		]);
-		const result = await mammoth.extractRawText({ arrayBuffer });
-		return result.value; // plain text
+	async function extractDocxText(_file: File) {
+		throw new Error('Word document parsing is not available on this platform');
 	}
 
 	const type = file.type || '';
@@ -1797,15 +1792,8 @@ export const getAge = (birthDate) => {
 };
 
 export const convertHeicToJpeg = async (file: File) => {
-	const { default: heic2any } = await import('heic2any');
-	try {
-		return await heic2any({ blob: file, toType: 'image/jpeg' });
-	} catch (err: any) {
-		if (err?.message?.includes('already browser readable')) {
-			return file;
-		}
-		throw err;
-	}
+	console.warn('HEIC conversion is not available on this platform');
+	return file;
 };
 
 export const decodeString = (str: string) => {
@@ -1855,17 +1843,11 @@ export const renderMermaidDiagram = async (
 	}
 };
 
-export const renderVegaVisualization = async (spec: string, i18n?: any) => {
-	const vega = await import('vega');
-	const parsedSpec = JSON.parse(spec);
-	let vegaSpec = parsedSpec;
-	if (parsedSpec.$schema && parsedSpec.$schema.includes('vega-lite')) {
-		const vegaLite = await import('vega-lite');
-		vegaSpec = vegaLite.compile(parsedSpec).spec;
-	}
-	const view = new vega.View(vega.parse(vegaSpec), { renderer: 'none' });
-	const svg = await view.toSVG();
-	return svg;
+export const renderVegaVisualization = async (_spec: string, i18n?: any) => {
+	throw new Error(
+		i18n?.t?.('Visualization is not available on this platform') ??
+			'Visualization is not available on this platform'
+	);
 };
 
 export const getCodeBlockContents = (content: string): object => {

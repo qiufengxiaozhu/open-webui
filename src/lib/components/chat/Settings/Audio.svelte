@@ -118,36 +118,10 @@
 	const loadKokoro = async () => {
 		if (TTSEngine === 'browser-kokoro') {
 			voices = [];
-
-			if (TTSEngineConfig?.dtype) {
-				TTSModel = null;
-				TTSModelProgress = null;
-				TTSModelLoading = true;
-
-				const model_id = 'onnx-community/Kokoro-82M-v1.0-ONNX';
-
-				const { KokoroTTS } = await import('kokoro-js');
-				TTSModel = await KokoroTTS.from_pretrained(model_id, {
-					dtype: TTSEngineConfig.dtype, // Options: "fp32", "fp16", "q8", "q4", "q4f16"
-					device: !!navigator?.gpu ? 'webgpu' : 'wasm', // Detect WebGPU
-					progress_callback: (e) => {
-						TTSModelProgress = e;
-						console.log(e);
-					}
-				});
-
-				await getVoices();
-
-				// const rawAudio = await tts.generate(inputText, {
-				// 	// Use `tts.list_voices()` to list all available voices
-				// 	voice: voice
-				// });
-
-				// const blobUrl = URL.createObjectURL(await rawAudio.toBlob());
-				// const audio = new Audio(blobUrl);
-
-				// audio.play();
-			}
+			TTSModel = null;
+			TTSModelProgress = null;
+			TTSModelLoading = false;
+			toast.error($i18n.t('Browser TTS is not available on this platform'));
 		}
 	};
 </script>

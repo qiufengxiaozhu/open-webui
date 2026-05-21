@@ -32,10 +32,6 @@ from functools import update_wrapper, partial
 from fastapi import Request
 from pydantic import BaseModel, Field, create_model
 
-from langchain_core.utils.function_calling import (
-    convert_to_openai_function as convert_pydantic_model_to_openai_function_spec,
-)
-
 
 from open_webui.utils.misc import is_string_allowed
 from open_webui.models.tools import Tools
@@ -749,6 +745,12 @@ def get_functions_from_tool(tool: object) -> list[Callable]:
             getattr(tool, func)
         )  # ensures that the callable is not a class itself, just a method or function.
     ]
+
+
+def convert_pydantic_model_to_openai_function_spec(pydantic_model):
+    from langchain_core.utils.function_calling import convert_to_openai_function
+
+    return convert_to_openai_function(pydantic_model)
 
 
 def get_tool_specs(tool_module: object) -> list[dict]:

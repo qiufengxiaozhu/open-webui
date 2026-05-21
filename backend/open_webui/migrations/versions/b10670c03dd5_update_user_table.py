@@ -68,7 +68,8 @@ def _convert_column_to_json(table: str, column: str):
             )
 
         # 3. Drop old TEXT column
-        op.drop_column(table, column)
+        with op.batch_alter_table(table) as batch_op:
+            batch_op.drop_column(column)
 
         # 4. Rename new JSON column → original name
         op.alter_column(table, f'{column}_json', new_column_name=column)
