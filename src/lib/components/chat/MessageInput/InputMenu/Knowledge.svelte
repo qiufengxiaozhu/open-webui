@@ -4,8 +4,6 @@
 	import { decodeString } from '$lib/utils';
 	import { knowledge } from '$lib/stores';
 
-	import { getKnowledgeBases, searchKnowledgeFilesById } from '$lib/apis/knowledge';
-
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Database from '$lib/components/icons/Database.svelte';
 	import DocumentPage from '$lib/components/icons/DocumentPage.svelte';
@@ -54,40 +52,10 @@
 	const getSelectedFileItemsPage = async () => {
 		if (!selectedItem) return;
 		selectedFileItemsLoading = true;
-
-		const res = await searchKnowledgeFilesById(
-			localStorage.token,
-			selectedItem.id,
-			null,
-			null,
-			null,
-			null,
-			selectedFileItemsPage
-		).catch(() => {
-			return null;
-		});
-
-		if (res) {
-			selectedFileItemsTotal = res.total;
-			const pageItems = res.items;
-
-			if ((pageItems ?? []).length === 0) {
-				selectedFileAllItemsLoaded = true;
-			} else {
-				selectedFileAllItemsLoaded = false;
-			}
-
-			if (selectedFileItems) {
-				const existingIds = new Set(selectedFileItems.map((item) => item.id));
-				const newItems = pageItems.filter((item) => !existingIds.has(item.id));
-				selectedFileItems = [...selectedFileItems, ...newItems];
-			} else {
-				selectedFileItems = pageItems;
-			}
-		}
-
+		selectedFileItems = selectedFileItems ?? [];
+		selectedFileAllItemsLoaded = true;
 		selectedFileItemsLoading = false;
-		return res;
+		return null;
 	};
 
 	let page = 1;
@@ -123,32 +91,10 @@
 
 	const getItemsPage = async () => {
 		itemsLoading = true;
-		const res = await getKnowledgeBases(localStorage.token, page).catch(() => {
-			return null;
-		});
-
-		if (res) {
-			console.log(res);
-			total = res.total;
-			const pageItems = res.items;
-
-			if ((pageItems ?? []).length === 0) {
-				allItemsLoaded = true;
-			} else {
-				allItemsLoaded = false;
-			}
-
-			if (items) {
-				const existingIds = new Set(items.map((item) => item.id));
-				const newItems = pageItems.filter((item) => !existingIds.has(item.id));
-				items = [...items, ...newItems];
-			} else {
-				items = pageItems;
-			}
-		}
-
+		allItemsLoaded = true;
+		items = items ?? [];
 		itemsLoading = false;
-		return res;
+		return null;
 	};
 
 	onMount(async () => {

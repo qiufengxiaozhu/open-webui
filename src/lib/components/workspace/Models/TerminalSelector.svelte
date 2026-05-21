@@ -1,15 +1,14 @@
 <script lang="ts">
 	import { getContext, onMount } from 'svelte';
-	import { getTerminalServers, type TerminalServer } from '$lib/apis/terminal';
 
 	const i18n = getContext('i18n');
 
 	export let terminalId: string = '';
 
-	let terminals: TerminalServer[] = [];
+	let terminals: { id: string; name?: string }[] = [];
 
 	onMount(async () => {
-		terminals = await getTerminalServers(localStorage.token);
+		terminals = [];
 	});
 </script>
 

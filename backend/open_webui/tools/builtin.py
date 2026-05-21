@@ -15,12 +15,9 @@ from typing import Optional
 from fastapi import Request
 
 from open_webui.models.users import UserModel
-from open_webui.models.notes import Notes
 from open_webui.models.chats import Chats
-from open_webui.models.channels import Channels, ChannelMember, Channel
 from open_webui.models.messages import Messages, Message
 from open_webui.models.groups import Groups
-from open_webui.models.memories import Memories
 from open_webui.utils.sanitize import sanitize_code
 
 log = logging.getLogger(__name__)
@@ -189,7 +186,10 @@ async def search_web(
         max_count = 5 if configured is None else configured
         count = max(1, min(count, max_count)) if count is not None else max_count
 
-        from open_webui.routers.retrieval import search_web as _search_web
+        try:
+            from open_webui.routers.retrieval import search_web as _search_web
+        except ImportError:
+            return json.dumps({'error': 'Web search is not available'})
 
         results = await asyncio.to_thread(_search_web, __request__, engine, query, user)
 
@@ -220,7 +220,10 @@ async def fetch_url(
         return json.dumps({'error': 'Request context not available'})
 
     try:
-        from open_webui.retrieval.utils import get_content_from_url
+        try:
+            from open_webui.retrieval.utils import get_content_from_url
+        except ImportError:
+            return json.dumps({'error': 'URL fetching is not available'})
 
         content, _ = await asyncio.to_thread(get_content_from_url, __request__, url)
 
@@ -694,9 +697,13 @@ async def delete_memory(
         result = await Memories.delete_memory_by_id_and_user_id(memory_id, user.id)
 
         if result:
-            from open_webui.retrieval.vector.async_client import ASYNC_VECTOR_DB_CLIENT
+            try:
+                from open_webui.retrieval.vector.async_client import ASYNC_VECTOR_DB_CLIENT
+            except ImportError:
+                ASYNC_VECTOR_DB_CLIENT = None
 
-            await ASYNC_VECTOR_DB_CLIENT.delete(collection_name=f'user-memory-{user.id}', ids=[memory_id])
+            if ASYNC_VECTOR_DB_CLIENT:
+                await ASYNC_VECTOR_DB_CLIENT.delete(collection_name=f'user-memory-{user.id}', ids=[memory_id])
             return json.dumps(
                 {'status': 'success', 'message': f'Memory {memory_id} deleted'},
                 ensure_ascii=False,
@@ -2086,8 +2093,12 @@ async def query_knowledge_files(
         from open_webui.models.knowledge import Knowledges
         from open_webui.models.files import Files
         from open_webui.models.notes import Notes
-        from open_webui.retrieval.utils import query_collection
         from open_webui.models.access_grants import AccessGrants
+
+        try:
+            from open_webui.retrieval.utils import query_collection
+        except ImportError:
+            query_collection = None
 
         user_id = __user__.get('id')
         user_role = __user__.get('role', 'user')
@@ -2187,7 +2198,7 @@ async def query_knowledge_files(
         chunks.extend(note_results)
 
         # Query vector collections if any
-        if collection_names:
+        if collection_names and query_collection:
             query_results = await query_collection(
                 __request__,
                 collection_names=collection_names,
@@ -2245,7 +2256,14 @@ async def query_knowledge_bases(
         import heapq
         from open_webui.models.knowledge import Knowledges
         from open_webui.routers.knowledge import KNOWLEDGE_BASES_COLLECTION
-        from open_webui.retrieval.vector.async_client import ASYNC_VECTOR_DB_CLIENT
+
+        try:
+            from open_webui.retrieval.vector.async_client import ASYNC_VECTOR_DB_CLIENT
+        except ImportError:
+            ASYNC_VECTOR_DB_CLIENT = None
+
+        if not ASYNC_VECTOR_DB_CLIENT:
+            return json.dumps({'error': 'Vector DB is not available'})
 
         user_id = __user__.get('id')
         user_group_ids = [group.id for group in await Groups.get_groups_by_member_id(user_id)]

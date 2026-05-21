@@ -4,7 +4,6 @@
 	import { config, settings } from '$lib/stores';
 	import { blobToFile, calculateSHA256, extractCurlyBraceWords } from '$lib/utils';
 
-	import { transcribeAudio } from '$lib/apis/audio';
 	import XMark from '$lib/components/icons/XMark.svelte';
 
 	import dayjs from 'dayjs';
@@ -183,19 +182,7 @@
 				return;
 			}
 
-			const res = await transcribeAudio(
-				localStorage.token,
-				file,
-				$settings?.audio?.stt?.language
-			).catch((error) => {
-				toast.error(`${error}`);
-				return null;
-			});
-
-			if (res) {
-				console.log(res);
-				onConfirm(res);
-			}
+			toast.error($i18n.t('Server-side transcription is not available on this platform'));
 		} else {
 			onConfirm({
 				file: file,

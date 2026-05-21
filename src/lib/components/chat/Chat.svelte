@@ -80,7 +80,6 @@
 		updateChatFolderIdById
 	} from '$lib/apis/chats';
 	import { generateOpenAIChatCompletion } from '$lib/apis/openai';
-	import { processWeb, processWebSearch, processYoutubeVideo } from '$lib/apis/retrieval';
 	import { getAndUpdateUserLocation, getUserSettings } from '$lib/apis/users';
 	import {
 		generateQueries,
@@ -1006,20 +1005,8 @@
 
 		for (const fileItem of fileItems) {
 			try {
-				const res = isYoutubeUrl(fileItem.url)
-					? await processYoutubeVideo(localStorage.token, fileItem.url)
-					: await processWeb(localStorage.token, '', fileItem.url);
-
-				if (res) {
-					fileItem.status = 'uploaded';
-					fileItem.collection_name = res.collection_name;
-					fileItem.file = {
-						...res.file,
-						...fileItem.file
-					};
-				}
-
-				files = [...files];
+				toast.error($i18n.t('Web content processing is not available on this platform'));
+				files = files.filter((f) => f.name !== fileItem.url);
 			} catch (e) {
 				files = files.filter((f) => f.name !== url);
 				toast.error(`${e}`);

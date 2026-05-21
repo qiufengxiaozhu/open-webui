@@ -5,7 +5,6 @@
 
 	const dispatch = createEventDispatcher();
 	import { getModels } from '$lib/apis';
-	import { getConfig, updateConfig } from '$lib/apis/evaluations';
 
 	import Switch from '$lib/components/common/Switch.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
@@ -20,20 +19,13 @@
 	let showAddModel = false;
 
 	const submitHandler = async () => {
-		evaluationConfig = await updateConfig(localStorage.token, evaluationConfig).catch((err) => {
-			toast.error(err);
-			return null;
-		});
-
-		if (evaluationConfig) {
-			toast.success($i18n.t('Settings saved successfully!'));
-			models.set(
-				await getModels(
-					localStorage.token,
-					$config?.features?.enable_direct_connections && ($settings?.directConnections ?? null)
-				)
-			);
-		}
+		toast.success($i18n.t('Settings saved successfully!'));
+		models.set(
+			await getModels(
+				localStorage.token,
+				$config?.features?.enable_direct_connections && ($settings?.directConnections ?? null)
+			)
+		);
 	};
 
 	const addModelHandler = async (model) => {
@@ -78,10 +70,10 @@
 
 	onMount(async () => {
 		if ($user?.role === 'admin') {
-			evaluationConfig = await getConfig(localStorage.token).catch((err) => {
-				toast.error(err);
-				return null;
-			});
+			evaluationConfig = {
+				ENABLE_EVALUATION_ARENA_MODELS: false,
+				EVALUATION_ARENA_MODELS: []
+			};
 		}
 	});
 </script>

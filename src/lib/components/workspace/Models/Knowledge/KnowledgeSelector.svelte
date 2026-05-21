@@ -2,8 +2,6 @@
 	import dayjs from 'dayjs';
 
 	import { onMount, onDestroy, getContext, createEventDispatcher } from 'svelte';
-	import { searchNotes } from '$lib/apis/notes';
-	import { searchKnowledgeBases, searchKnowledgeFiles } from '$lib/apis/knowledge';
 
 	import { decodeString } from '$lib/utils';
 
@@ -52,52 +50,15 @@
 	};
 
 	const getNoteItems = async () => {
-		const res = await searchNotes(localStorage.token, query).catch(() => {
-			return null;
-		});
-
-		if (res) {
-			noteItems = res.items.map((note) => {
-				return {
-					...note,
-					type: 'note',
-					name: note.title,
-					description: dayjs(note.updated_at / 1000000).fromNow()
-				};
-			});
-		}
+		noteItems = [];
 	};
 
 	const getKnowledgeItems = async () => {
-		const res = await searchKnowledgeBases(localStorage.token, query).catch(() => {
-			return null;
-		});
-
-		if (res) {
-			knowledgeItems = res.items.map((note) => {
-				return {
-					...note,
-					type: 'collection'
-				};
-			});
-		}
+		knowledgeItems = [];
 	};
 
 	const getKnowledgeFileItems = async () => {
-		const res = await searchKnowledgeFiles(localStorage.token, query).catch(() => {
-			return null;
-		});
-
-		if (res) {
-			fileItems = res.items.map((file) => {
-				return {
-					...file,
-					type: 'file',
-					name: file.meta?.name || file.filename,
-					description: file.description || ''
-				};
-			});
-		}
+		fileItems = [];
 	};
 
 	onMount(async () => {

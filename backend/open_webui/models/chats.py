@@ -12,7 +12,6 @@ from open_webui.internal.db import Base, JSONField, get_async_db_context
 from open_webui.models.tags import TagModel, Tag, Tags
 from open_webui.models.folders import Folders
 from open_webui.models.chat_messages import ChatMessage, ChatMessages
-from open_webui.models.automations import AutomationRun
 from open_webui.utils.misc import sanitize_data_for_db, sanitize_text_for_db
 
 from pydantic import BaseModel, ConfigDict
@@ -1505,7 +1504,6 @@ class ChatTable:
     async def delete_chat_by_id(self, id: str, db: Optional[AsyncSession] = None) -> bool:
         try:
             async with get_async_db_context(db) as db:
-                await db.execute(update(AutomationRun).filter_by(chat_id=id).values(chat_id=None))
                 await db.execute(delete(ChatMessage).filter_by(chat_id=id))
                 await db.execute(delete(Chat).filter_by(id=id))
                 await db.commit()
@@ -1517,7 +1515,6 @@ class ChatTable:
     async def delete_chat_by_id_and_user_id(self, id: str, user_id: str, db: Optional[AsyncSession] = None) -> bool:
         try:
             async with get_async_db_context(db) as db:
-                await db.execute(update(AutomationRun).filter_by(chat_id=id).values(chat_id=None))
                 await db.execute(delete(ChatMessage).filter_by(chat_id=id))
                 await db.execute(delete(Chat).filter_by(id=id, user_id=user_id))
                 await db.commit()
@@ -1532,11 +1529,6 @@ class ChatTable:
                 await self.delete_shared_chats_by_user_id(user_id, db=db)
 
                 chat_id_subquery = select(Chat.id).filter_by(user_id=user_id).scalar_subquery()
-                await db.execute(
-                    update(AutomationRun)
-                    .filter(AutomationRun.chat_id.in_(select(Chat.id).filter_by(user_id=user_id)))
-                    .values(chat_id=None)
-                )
                 await db.execute(
                     delete(ChatMessage).filter(ChatMessage.chat_id.in_(select(Chat.id).filter_by(user_id=user_id)))
                 )
@@ -1553,9 +1545,6 @@ class ChatTable:
         try:
             async with get_async_db_context(db) as db:
                 chat_ids_stmt = select(Chat.id).filter_by(user_id=user_id, folder_id=folder_id)
-                await db.execute(
-                    update(AutomationRun).filter(AutomationRun.chat_id.in_(chat_ids_stmt)).values(chat_id=None)
-                )
                 await db.execute(delete(ChatMessage).filter(ChatMessage.chat_id.in_(chat_ids_stmt)))
                 await db.execute(delete(Chat).filter_by(user_id=user_id, folder_id=folder_id))
                 await db.commit()

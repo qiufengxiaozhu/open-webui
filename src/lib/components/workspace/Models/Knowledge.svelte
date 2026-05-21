@@ -5,7 +5,6 @@
 	import KnowledgeSelector from './Knowledge/KnowledgeSelector.svelte';
 	import FileItem from '$lib/components/common/FileItem.svelte';
 
-	import { getKnowledgeBases } from '$lib/apis/knowledge';
 	import { uploadFile } from '$lib/apis/files';
 
 	import { toast } from 'svelte-sonner';

@@ -31,7 +31,6 @@ try:
 except (ImportError, ValueError):
     ASYNC_VECTOR_DB_CLIENT = None
 
-from open_webui.models.channels import Channels
 from open_webui.models.users import Users
 from open_webui.models.files import (
     FileForm,
@@ -41,7 +40,6 @@ from open_webui.models.files import (
     Files,
 )
 from open_webui.models.chats import Chats
-from open_webui.models.knowledge import Knowledges
 from open_webui.models.groups import Groups
 from open_webui.models.access_grants import AccessGrants
 
@@ -114,7 +112,10 @@ async def process_uploaded_file(
 ):
     async def _process_handler(db_session):
         try:
-            from open_webui.routers.retrieval import ProcessFileForm, process_file
+            try:
+                from open_webui.routers.retrieval import ProcessFileForm, process_file
+            except ImportError:
+                raise Exception('File processing is not available')
 
             content_type = file.content_type
 
@@ -288,11 +289,6 @@ async def upload_file_handler(
             ),
             db=db,
         )
-
-        if 'channel_id' in file_metadata:
-            channel = await Channels.get_channel_by_id_and_user_id(file_metadata['channel_id'], user.id, db=db)
-            if channel:
-                await Channels.add_file_to_channel_by_id(channel.id, file_item.id, user.id, db=db)
 
         if process:
             if background_tasks and process_in_background:
@@ -575,7 +571,10 @@ async def update_file_data_content_by_id(
 
     if file.user_id == user.id or user.role == 'admin' or await has_access_to_file(id, 'write', user, db=db):
         try:
-            from open_webui.routers.retrieval import ProcessFileForm, process_file
+            try:
+                from open_webui.routers.retrieval import ProcessFileForm, process_file
+            except ImportError:
+                raise Exception('File processing is not available')
 
             await process_file(
                 request,
@@ -587,25 +586,6 @@ async def update_file_data_content_by_id(
         except Exception as e:
             log.exception(e)
             log.error(f'Error processing file: {file.id}')
-
-        # Propagate content change to all knowledge collections referencing
-        # this file.  Without this the old embeddings remain in the knowledge
-        # collection and RAG returns both stale and current data (#20558).
-        knowledges = await Knowledges.get_knowledges_by_file_id(id, db=db)
-        for knowledge in knowledges:
-            try:
-                # Remove old embeddings for this file from the KB collection
-                if ASYNC_VECTOR_DB_CLIENT:
-                    await ASYNC_VECTOR_DB_CLIENT.delete(collection_name=knowledge.id, filter={'file_id': id})
-                # Re-add from the now-updated file-{file_id} collection
-                await process_file(
-                    request,
-                    ProcessFileForm(file_id=id, collection_name=knowledge.id),
-                    user=user,
-                    db=db,
-                )
-            except Exception as e:
-                log.warning(f'Failed to update knowledge {knowledge.id} after content change for file {id}: {e}')
 
         return {'content': file.data.get('content', '')}
     else:
@@ -801,20 +781,6 @@ async def delete_file_by_id(id: str, user=Depends(get_verified_user), db: AsyncS
         )
 
     if file.user_id == user.id or user.role == 'admin' or await has_access_to_file(id, 'write', user, db=db):
-        # Clean up KB associations and embeddings before deleting
-        knowledges = await Knowledges.get_knowledges_by_file_id(id, db=db)
-        for knowledge in knowledges:
-            # Remove KB-file relationship
-            await Knowledges.remove_file_from_knowledge_by_id(knowledge.id, id, db=db)
-            # Clean KB embeddings (same logic as /knowledge/{id}/file/remove)
-            if ASYNC_VECTOR_DB_CLIENT:
-                try:
-                    await ASYNC_VECTOR_DB_CLIENT.delete(collection_name=knowledge.id, filter={'file_id': id})
-                    if file.hash:
-                        await ASYNC_VECTOR_DB_CLIENT.delete(collection_name=knowledge.id, filter={'hash': file.hash})
-                except Exception as e:
-                    log.debug(f'KB embedding cleanup for {knowledge.id}: {e}')
-
         result = await Files.delete_file_by_id(id, db=db)
         if result:
             try:

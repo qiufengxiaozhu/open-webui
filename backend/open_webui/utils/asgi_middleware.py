@@ -246,7 +246,20 @@ class RedirectMiddleware:
                     # Local import: youtube loader pulls heavy deps and is
                     # only needed when a share-target actually contains a
                     # YouTube URL.
-                    from open_webui.retrieval.loaders.youtube import _parse_video_id
+                    try:
+                        from open_webui.retrieval.loaders.youtube import _parse_video_id
+                    except ImportError:
+                        from urllib.parse import parse_qs as _pqs, urlparse
+
+                        def _parse_video_id(url: str):
+                            parsed_url = urlparse(url)
+                            if parsed_url.netloc.endswith('youtu.be'):
+                                video_id = parsed_url.path.lstrip('/').split('/')[0]
+                            elif 'v' in _pqs(parsed_url.query):
+                                video_id = _pqs(parsed_url.query)['v'][0]
+                            else:
+                                return None
+                            return video_id if len(video_id) == 11 else None
 
                     youtube_video_id = _parse_video_id(url_match[0])
                     if youtube_video_id:

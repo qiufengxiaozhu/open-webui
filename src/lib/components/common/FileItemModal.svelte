@@ -6,7 +6,6 @@
 	import { formatFileSize, getLineCount } from '$lib/utils';
 	import { WEBUI_API_BASE_URL } from '$lib/constants';
 	import { settings } from '$lib/stores';
-	import { getKnowledgeById } from '$lib/apis/knowledge';
 	import { getFileById, getFileContentById } from '$lib/apis/files';
 
 	import CodeBlock from '$lib/components/chat/Messages/CodeBlock.svelte';
@@ -164,16 +163,6 @@
 		selectedTab = '';
 		expandedContent = false;
 		if (item?.type === 'collection') {
-			loading = true;
-
-			const knowledge = await getKnowledgeById(localStorage.token, item.id).catch((e) => {
-				console.error('Error fetching knowledge base:', e);
-				return null;
-			});
-
-			if (knowledge) {
-				item.files = knowledge.files || [];
-			}
 			loading = false;
 		} else if (item?.type === 'file') {
 			loading = true;

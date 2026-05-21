@@ -2,8 +2,6 @@
 	import { createEventDispatcher, getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
 
-	import { updateMemoryById } from '$lib/apis/memories';
-
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import XMark from '$lib/components/icons/XMark.svelte';
@@ -28,20 +26,7 @@
 
 	const submitHandler = async () => {
 		loading = true;
-
-		const res = await updateMemoryById(localStorage.token, memory.id, content).catch((error) => {
-			toast.error(`${error}`);
-
-			return null;
-		});
-
-		if (res) {
-			console.log(res);
-			toast.success($i18n.t('Memory updated successfully'));
-			dispatch('save');
-			show = false;
-		}
-
+		toast.error($i18n.t('Memory is not available on this platform'));
 		loading = false;
 	};
 </script>

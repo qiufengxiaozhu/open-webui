@@ -3,7 +3,6 @@
 	import { fly } from 'svelte/transition';
 
 	import { config, user, tools as _tools, mobile, knowledge } from '$lib/stores';
-	import { getKnowledgeBases } from '$lib/apis/knowledge';
 
 	import { createPicker } from '$lib/utils/google-drive-picker';
 

@@ -1573,7 +1573,23 @@ async def chat_web_search_handler(request: Request, form_data: dict, extra_param
     )
 
     try:
-        from open_webui.routers.retrieval import SearchForm, process_web_search
+        try:
+            from open_webui.routers.retrieval import SearchForm, process_web_search
+        except ImportError:
+            log.warning('Retrieval module not available; skipping web search')
+            await event_emitter(
+                {
+                    'type': 'status',
+                    'data': {
+                        'action': 'web_search',
+                        'description': 'Web search is not available',
+                        'queries': queries,
+                        'done': True,
+                        'error': True,
+                    },
+                }
+            )
+            return form_data
 
         results = await process_web_search(
             request,
@@ -1995,29 +2011,35 @@ async def chat_completion_files_handler(
             queries = [get_last_user_message(body['messages']) or '']
 
         try:
-            from open_webui.retrieval.utils import get_sources_from_items
+            try:
+                from open_webui.retrieval.utils import get_sources_from_items
+            except ImportError:
+                get_sources_from_items = None
 
-            # Directly await async get_sources_from_items (no thread needed - fully async now)
-            sources = await get_sources_from_items(
-                request=request,
-                items=files,
-                queries=queries,
-                embedding_function=lambda query, prefix: request.app.state.EMBEDDING_FUNCTION(
-                    query, prefix=prefix, user=user
-                ),
-                k=request.app.state.config.TOP_K,
-                reranking_function=(
-                    (lambda query, documents: request.app.state.RERANKING_FUNCTION(query, documents, user=user))
-                    if request.app.state.RERANKING_FUNCTION
-                    else None
-                ),
-                k_reranker=request.app.state.config.TOP_K_RERANKER,
-                r=request.app.state.config.RELEVANCE_THRESHOLD,
-                hybrid_bm25_weight=request.app.state.config.HYBRID_BM25_WEIGHT,
-                hybrid_search=request.app.state.config.ENABLE_RAG_HYBRID_SEARCH,
-                full_context=all_full_context or request.app.state.config.RAG_FULL_CONTEXT,
-                user=user,
-            )
+            if not get_sources_from_items:
+                sources = []
+            else:
+                # Directly await async get_sources_from_items (no thread needed - fully async now)
+                sources = await get_sources_from_items(
+                    request=request,
+                    items=files,
+                    queries=queries,
+                    embedding_function=lambda query, prefix: request.app.state.EMBEDDING_FUNCTION(
+                        query, prefix=prefix, user=user
+                    ),
+                    k=request.app.state.config.TOP_K,
+                    reranking_function=(
+                        (lambda query, documents: request.app.state.RERANKING_FUNCTION(query, documents, user=user))
+                        if request.app.state.RERANKING_FUNCTION
+                        else None
+                    ),
+                    k_reranker=request.app.state.config.TOP_K_RERANKER,
+                    r=request.app.state.config.RELEVANCE_THRESHOLD,
+                    hybrid_bm25_weight=request.app.state.config.HYBRID_BM25_WEIGHT,
+                    hybrid_search=request.app.state.config.ENABLE_RAG_HYBRID_SEARCH,
+                    full_context=all_full_context or request.app.state.config.RAG_FULL_CONTEXT,
+                    user=user,
+                )
         except Exception as e:
             log.exception(e)
 

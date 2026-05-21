@@ -8,11 +8,6 @@
 	const i18n = getContext('i18n');
 
 	import { WEBUI_NAME, knowledge, user } from '$lib/stores';
-	import {
-		deleteKnowledgeById,
-		searchKnowledgeBases,
-		exportKnowledgeById
-	} from '$lib/apis/knowledge';
 
 	import { goto } from '$app/navigation';
 	import { capitalizeFirstLetter } from '$lib/utils';
@@ -83,64 +78,18 @@
 
 	const getItemsPage = async () => {
 		itemsLoading = true;
-		const res = await searchKnowledgeBases(localStorage.token, query, viewOption, page).catch(
-			() => {
-				return [];
-			}
-		);
-
-		if (res) {
-			console.log(res);
-			total = res.total;
-			const pageItems = res.items;
-
-			if ((pageItems ?? []).length === 0) {
-				allItemsLoaded = true;
-			} else {
-				allItemsLoaded = false;
-			}
-
-			if (items) {
-				const existingIds = new Set(items.map((item) => item.id));
-				const newItems = pageItems.filter((item) => !existingIds.has(item.id));
-				items = [...items, ...newItems];
-			} else {
-				items = pageItems;
-			}
-		}
-
+		allItemsLoaded = true;
+		items = items ?? [];
 		itemsLoading = false;
-		return res;
+		return [];
 	};
 
 	const deleteHandler = async (item) => {
-		const res = await deleteKnowledgeById(localStorage.token, item.id).catch((e) => {
-			toast.error(`${e}`);
-		});
-
-		if (res) {
-			toast.success($i18n.t('Knowledge deleted successfully.'));
-			init();
-		}
+		toast.error($i18n.t('Knowledge is not available on this platform'));
 	};
 
 	const exportHandler = async (item) => {
-		try {
-			const blob = await exportKnowledgeById(localStorage.token, item.id);
-			if (blob) {
-				const url = URL.createObjectURL(blob);
-				const a = document.createElement('a');
-				a.href = url;
-				a.download = `${item.name}.zip`;
-				document.body.appendChild(a);
-				a.click();
-				document.body.removeChild(a);
-				URL.revokeObjectURL(url);
-				toast.success($i18n.t('Knowledge exported successfully'));
-			}
-		} catch (e) {
-			toast.error(`${e}`);
-		}
+		toast.error($i18n.t('Knowledge is not available on this platform'));
 	};
 
 	onMount(async () => {

@@ -71,7 +71,6 @@
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import { getUserSettings } from '$lib/apis/users';
 	import dayjs from 'dayjs';
-	import { getChannels } from '$lib/apis/channels';
 
 	const unregisterServiceWorkers = async () => {
 		if ('serviceWorker' in navigator) {
@@ -507,19 +506,6 @@
 
 		// handle channel created event
 		if (event.data?.type === 'channel:created') {
-			const res = await getChannels(localStorage.token).catch(async (error) => {
-				return null;
-			});
-
-			if (res) {
-				await channels.set(
-					res.sort(
-						(a, b) =>
-							['', null, 'group', 'dm'].indexOf(a.type) - ['', null, 'group', 'dm'].indexOf(b.type)
-					)
-				);
-			}
-
 			return;
 		}
 
@@ -557,20 +543,6 @@
 							return ch;
 						})
 					);
-				} else {
-					const res = await getChannels(localStorage.token).catch(async (error) => {
-						return null;
-					});
-
-					if (res) {
-						await channels.set(
-							res.sort(
-								(a, b) =>
-									['', null, 'group', 'dm'].indexOf(a.type) -
-									['', null, 'group', 'dm'].indexOf(b.type)
-							)
-						);
-					}
 				}
 			}
 

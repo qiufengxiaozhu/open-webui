@@ -6,8 +6,6 @@
 
 	import { goto } from '$app/navigation';
 	import { channels, models } from '$lib/stores';
-	import UserStatus from '$lib/components/channel/Messages/Message/UserStatus.svelte';
-	import UserStatusLinkPreview from '$lib/components/channel/Messages/Message/UserStatusLinkPreview.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -115,8 +113,4 @@
 			{triggerChar}{label}
 		</span>
 	</LinkPreview.Trigger>
-
-	{#if triggerChar === '@' && idType === 'U'}
-		<UserStatusLinkPreview {id} />
-	{/if}
 </LinkPreview.Root>

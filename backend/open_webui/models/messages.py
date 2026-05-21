@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from open_webui.internal.db import Base, JSONField, get_async_db_context
 from open_webui.models.tags import TagModel, Tag, Tags
 from open_webui.models.users import Users, User, UserNameResponse
-from open_webui.models.channels import Channels, ChannelMember
 
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -146,8 +145,6 @@ class MessageTable:
         db: Optional[AsyncSession] = None,
     ) -> Optional[MessageModel]:
         async with get_async_db_context(db) as db:
-            channel_member = await Channels.join_channel(channel_id, user_id)
-
             id = str(uuid.uuid4())
             ts = int(time.time_ns())
 
@@ -201,21 +198,11 @@ class MessageTable:
             # Check if message was sent by webhook (webhook info in meta takes precedence)
             webhook_info = message.meta.get('webhook') if message.meta else None
             if webhook_info and webhook_info.get('id'):
-                # Look up webhook by ID to get current name
-                webhook = await Channels.get_webhook_by_id(webhook_info.get('id'), db=db)
-                if webhook:
-                    user_info = {
-                        'id': webhook.id,
-                        'name': webhook.name,
-                        'role': 'webhook',
-                    }
-                else:
-                    # Webhook was deleted, use placeholder
-                    user_info = {
-                        'id': webhook_info.get('id'),
-                        'name': 'Deleted Webhook',
-                        'role': 'webhook',
-                    }
+                user_info = {
+                    'id': webhook_info.get('id'),
+                    'name': webhook_info.get('name') or 'Webhook',
+                    'role': 'webhook',
+                }
             else:
                 user = await Users.get_user_by_id(message.user_id, db=db)
                 user_info = user.model_dump() if user else None
@@ -235,19 +222,11 @@ class MessageTable:
         """Resolve user info from message, handling webhook messages."""
         webhook_info = message.meta.get('webhook') if message.meta else None
         if webhook_info and webhook_info.get('id'):
-            webhook = await Channels.get_webhook_by_id(webhook_info.get('id'), db=db)
-            if webhook:
-                return {
-                    'id': webhook.id,
-                    'name': webhook.name,
-                    'role': 'webhook',
-                }
-            else:
-                return {
-                    'id': webhook_info.get('id'),
-                    'name': 'Deleted Webhook',
-                    'role': 'webhook',
-                }
+            return {
+                'id': webhook_info.get('id'),
+                'name': webhook_info.get('name') or 'Webhook',
+                'role': 'webhook',
+            }
         return None
 
     async def get_thread_replies_by_message_id(

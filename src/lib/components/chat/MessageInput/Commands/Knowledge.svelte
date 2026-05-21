@@ -8,7 +8,6 @@
 
 	import { folders } from '$lib/stores';
 	import { getFolders } from '$lib/apis/folders';
-	import { searchKnowledgeBases, searchKnowledgeFiles } from '$lib/apis/knowledge';
 	import { removeLastWordFromString, isValidHttpUrl, isYoutubeUrl, decodeString } from '$lib/utils';
 
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
@@ -99,35 +98,11 @@
 	};
 
 	const getKnowledgeItems = async () => {
-		const res = await searchKnowledgeBases(localStorage.token, query).catch(() => {
-			return null;
-		});
-
-		if (res) {
-			knowledgeItems = res.items.map((item) => {
-				return {
-					...item,
-					type: 'collection'
-				};
-			});
-		}
+		knowledgeItems = [];
 	};
 
 	const getKnowledgeFileItems = async () => {
-		const res = await searchKnowledgeFiles(localStorage.token, query).catch(() => {
-			return null;
-		});
-
-		if (res) {
-			fileItems = res.items.map((item) => {
-				return {
-					...item,
-					type: 'file',
-					name: item.filename,
-					description: item.collection ? item.collection.name : ''
-				};
-			});
-		}
+		fileItems = [];
 	};
 
 	onMount(async () => {

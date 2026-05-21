@@ -367,7 +367,6 @@ class UsersTable:
         async with get_async_db_context(db) as db:
             # Import here to avoid circular imports
             from open_webui.models.groups import GroupMember
-            from open_webui.models.channels import ChannelMember
 
             # Join GroupMember so we can order by group_id when requested
             stmt = select(User)
@@ -379,17 +378,6 @@ class UsersTable:
                         or_(
                             User.name.ilike(f'%{query_key}%'),
                             User.email.ilike(f'%{query_key}%'),
-                        )
-                    )
-
-                channel_id = filter.get('channel_id')
-                if channel_id:
-                    stmt = stmt.filter(
-                        exists(
-                            select(ChannelMember.id).where(
-                                ChannelMember.user_id == User.id,
-                                ChannelMember.channel_id == channel_id,
-                            )
                         )
                     )
 

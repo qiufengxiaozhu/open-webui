@@ -3,7 +3,6 @@
 	import { onMount, tick, getContext } from 'svelte';
 
 	import { decodeString } from '$lib/utils';
-	import { getNoteList } from '$lib/apis/notes';
 
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import PageEdit from '$lib/components/icons/PageEdit.svelte';
@@ -31,31 +30,9 @@
 
 	const getItemsPage = async () => {
 		itemsLoading = true;
-		let res = await getNoteList(localStorage.token, page).catch(() => {
-			return [];
-		});
-
-		if ((res ?? []).length === 0) {
-			allItemsLoaded = true;
-		} else {
-			allItemsLoaded = false;
-		}
-
-		items = [
-			...items,
-			...res.map((note) => {
-				return {
-					...note,
-					type: 'note',
-					name: note.title,
-					description: dayjs(note.updated_at / 1000000).fromNow()
-				};
-			})
-		];
-
+		allItemsLoaded = true;
 		itemsLoading = false;
-
-		return res;
+		return [];
 	};
 
 	onMount(async () => {

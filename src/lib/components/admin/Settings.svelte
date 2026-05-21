@@ -12,15 +12,11 @@
 	import Interface from './Settings/Interface.svelte';
 	import Models from './Settings/Models.svelte';
 	import Connections from './Settings/Connections.svelte';
-	import Documents from './Settings/Documents.svelte';
-	import WebSearch from './Settings/WebSearch.svelte';
 
-	import Evaluations from './Settings/Evaluations.svelte';
 	import CodeExecution from './Settings/CodeExecution.svelte';
 	import Integrations from './Settings/Integrations.svelte';
 
 	import ChartBar from '../icons/ChartBar.svelte';
-	import DocumentChartBar from '../icons/DocumentChartBar.svelte';
 	import Search from '../icons/Search.svelte';
 	import XMark from '../icons/XMark.svelte';
 
@@ -36,10 +32,7 @@
 			'general',
 			'connections',
 			'models',
-			'evaluations',
 			'integrations',
-			'documents',
-			'web',
 			'code-execution',
 			'interface',
 			'db'
@@ -120,59 +113,10 @@
 			]
 		},
 		{
-			id: 'evaluations',
-			title: 'Evaluations',
-			route: '/admin/settings/evaluations',
-			keywords: ['evaluations', 'feedback', 'rating', 'arena', 'leaderboard', 'preference']
-		},
-		{
 			id: 'integrations',
 			title: 'Integrations',
 			route: '/admin/settings/integrations',
 			keywords: ['tools', 'integrations', 'plugins', 'extensions', 'functions', 'openapi', 'server']
-		},
-		{
-			id: 'documents',
-			title: 'Documents',
-			route: '/admin/settings/documents',
-			keywords: [
-				'documents',
-				'files',
-				'rag',
-				'knowledge',
-				'upload',
-				'embedding',
-				'vector db',
-				'chunk',
-				'overlap',
-				'splitter',
-				'pdf',
-				'ocr',
-				'tika',
-				'docling',
-				'unstructured'
-			]
-		},
-		{
-			id: 'web',
-			title: 'Web Search',
-			route: '/admin/settings/web',
-			keywords: [
-				'web search',
-				'google',
-				'bing',
-				'duckduckgo',
-				'serp',
-				'searxng',
-				'moojeh',
-				'yacy',
-				'serper',
-				'serply',
-				'tavily',
-				'exa',
-				'perplexity',
-				'firecrawl'
-			]
 		},
 		{
 			id: 'code-execution',
@@ -325,8 +269,6 @@
 								clip-rule="evenodd"
 							/>
 						</svg>
-					{:else if tab.id === 'evaluations'}
-						<DocumentChartBar />
 					{:else if tab.id === 'integrations'}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -338,34 +280,6 @@
 								fill-rule="evenodd"
 								d="M12 6.75a5.25 5.25 0 0 1 6.775-5.025.75.75 0 0 1 .313 1.248l-3.32 3.319c.063.475.276.934.641 1.299.365.365.824.578 1.3.64l3.318-3.319a.75.75 0 0 1 1.248.313 5.25 5.25 0 0 1-5.472 6.756c-1.018-.086-1.87.1-2.309.634L7.344 21.3A3.298 3.298 0 1 1 2.7 16.657l8.684-7.151c.533-.44.72-1.291.634-2.309A5.342 5.342 0 0 1 12 6.75ZM4.117 19.125a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Z"
 								clip-rule="evenodd"
-							/>
-						</svg>
-					{:else if tab.id === 'documents'}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 24 24"
-							fill="currentColor"
-							class="w-4 h-4"
-						>
-							<path d="M11.625 16.5a1.875 1.875 0 1 0 0-3.75 1.875 1.875 0 0 0 0 3.75Z" />
-							<path
-								fill-rule="evenodd"
-								d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875Zm6 16.5c.66 0 1.277-.19 1.797-.518l1.048 1.048a.75.75 0 0 0 1.06-1.06l-1.047-1.048A3.375 3.375 0 1 0 11.625 18Z"
-								clip-rule="evenodd"
-							/>
-							<path
-								d="M14.25 5.25a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963A5.23 5.23 0 0 0 16.5 7.5h-1.875a.375.375 0 0 1-.375-.375V5.25Z"
-							/>
-						</svg>
-					{:else if tab.id === 'web'}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 24 24"
-							fill="currentColor"
-							class="w-4 h-4"
-						>
-							<path
-								d="M21.721 12.752a9.711 9.711 0 0 0-.945-5.003 12.754 12.754 0 0 1-4.339 2.708 18.991 18.991 0 0 1-.214 4.772 17.165 17.165 0 0 0 5.498-2.477ZM14.634 15.55a17.324 17.324 0 0 0 .332-4.647c-.952.227-1.945.347-2.966.347-1.021 0-2.014-.12-2.966-.347a17.515 17.515 0 0 0 .332 4.647 17.385 17.385 0 0 0 5.268 0ZM9.772 17.119a18.963 18.963 0 0 0 4.456 0A17.182 17.182 0 0 1 12 21.724a17.18 17.18 0 0 1-2.228-4.605ZM7.777 15.23a18.87 18.87 0 0 1-.214-4.774 12.753 12.753 0 0 1-4.34-2.708 9.711 9.711 0 0 0-.944 5.004 17.165 17.165 0 0 0 5.498 2.477ZM21.356 14.752a9.765 9.765 0 0 1-7.478 6.817 18.64 18.64 0 0 0 1.988-4.718 18.627 18.627 0 0 0 5.49-2.098ZM2.644 14.752c1.682.971 3.53 1.688 5.49 2.099a18.64 18.64 0 0 0 1.988 4.718 9.765 9.765 0 0 1-7.478-6.816ZM13.878 2.43a9.755 9.755 0 0 1 6.116 3.986 11.267 11.267 0 0 1-3.746 2.504 18.63 18.63 0 0 0-2.37-6.49ZM12 2.276a17.152 17.152 0 0 1 2.805 7.121c-.897.23-1.837.353-2.805.353-.968 0-1.908-.122-2.805-.353A17.151 17.151 0 0 1 12 2.276ZM10.122 2.43a18.629 18.629 0 0 0-2.37 6.49 11.266 11.266 0 0 1-3.746-2.504 9.754 9.754 0 0 1 6.116-3.985Z"
 							/>
 						</svg>
 					{:else if tab.id === 'code-execution'}
@@ -436,28 +350,8 @@
 			/>
 		{:else if selectedTab === 'models'}
 			<Models />
-		{:else if selectedTab === 'evaluations'}
-			<Evaluations />
 		{:else if selectedTab === 'integrations'}
 			<Integrations />
-		{:else if selectedTab === 'documents'}
-			<Documents
-				on:save={async () => {
-					toast.success($i18n.t('Settings saved successfully!'));
-
-					await tick();
-					await config.set(await getBackendConfig());
-				}}
-			/>
-		{:else if selectedTab === 'web'}
-			<WebSearch
-				saveHandler={async () => {
-					toast.success($i18n.t('Settings saved successfully!'));
-
-					await tick();
-					await config.set(await getBackendConfig());
-				}}
-			/>
 		{:else if selectedTab === 'code-execution'}
 			<CodeExecution
 				saveHandler={async () => {

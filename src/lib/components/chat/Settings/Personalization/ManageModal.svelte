@@ -7,7 +7,6 @@
 
 	import Modal from '$lib/components/common/Modal.svelte';
 	import AddMemoryModal from './AddMemoryModal.svelte';
-	import { deleteMemoriesByUserId, deleteMemoryById, getMemories } from '$lib/apis/memories';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import EditMemoryModal from './EditMemoryModal.svelte';
 	import localizedFormat from 'dayjs/plugin/localizedFormat';
@@ -72,21 +71,13 @@
 	});
 
 	let onClearConfirmed = async () => {
-		const res = await deleteMemoriesByUserId(localStorage.token).catch((error) => {
-			toast.error(`${error}`);
-			return null;
-		});
-
-		if (res && memories.length > 0) {
-			toast.success($i18n.t('Memory cleared successfully'));
-			memories = [];
-		}
+		toast.error($i18n.t('Memory is not available on this platform'));
 		showClearConfirmDialog = false;
 	};
 
 	$: if (show && memories.length === 0 && loading) {
 		(async () => {
-			memories = await getMemories(localStorage.token);
+			memories = [];
 			loading = false;
 		})();
 	}
@@ -299,15 +290,7 @@
 	title={$i18n.t('Delete Memory?')}
 	show={showDeleteConfirm}
 	on:confirm={async () => {
-		const res = await deleteMemoryById(localStorage.token, selectedMemory.id).catch((error) => {
-			toast.error(`${error}`);
-			return null;
-		});
-
-		if (res) {
-			toast.success($i18n.t('Memory deleted successfully'));
-			memories = await getMemories(localStorage.token);
-		}
+		toast.error($i18n.t('Memory is not available on this platform'));
 		showDeleteConfirm = false;
 	}}
 	on:cancel={() => {
@@ -327,7 +310,7 @@
 <AddMemoryModal
 	bind:show={showAddMemoryModal}
 	on:save={async () => {
-		memories = await getMemories(localStorage.token);
+		memories = [];
 	}}
 />
 
@@ -335,6 +318,6 @@
 	bind:show={showEditMemoryModal}
 	memory={selectedMemory}
 	on:save={async () => {
-		memories = await getMemories(localStorage.token);
+		memories = [];
 	}}
 />
