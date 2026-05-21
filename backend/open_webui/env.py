@@ -316,6 +316,14 @@ if FROM_INIT_PY:
     FRONTEND_BUILD_DIR = Path(os.getenv('FRONTEND_BUILD_DIR', OPEN_WEBUI_DIR / 'frontend')).resolve()
 
 ####################################
+# Skills Gate
+####################################
+
+ENABLE_SKILLS_GATE = os.environ.get('ENABLE_SKILLS_GATE', 'true').lower() == 'true'
+SKILLS_DIR = Path(os.getenv('SKILLS_DIR', BASE_DIR / 'docs' / 'skills')).resolve()
+SKILLS_GATE_REJECT_MESSAGE = os.environ.get('SKILLS_GATE_REJECT_MESSAGE', '')
+
+####################################
 # Database
 ####################################
 

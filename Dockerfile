@@ -71,6 +71,9 @@ RUN pip3 install --no-cache-dir uv && \
 COPY --chown=$UID:$GID --from=build /app/build /app/build
 COPY --chown=$UID:$GID --from=build /app/package.json /app/package.json
 
+# Copy skills documents for Skills Gate
+COPY --chown=$UID:$GID ./docs/skills/ /app/docs/skills/
+
 # Copy backend files
 COPY --chown=$UID:$GID ./backend .
 

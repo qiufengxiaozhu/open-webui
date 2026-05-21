@@ -86,3 +86,12 @@ fake-useragent==2.2.0
 lxml
 deprecated
 shortuuid
+
+# Text extraction
+langchain-core
+langchain-community
+pypdf
+docx2txt
+python-pptx
+openpyxl
+pandas

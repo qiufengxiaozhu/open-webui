@@ -481,6 +481,11 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             log.warning(f'Failed to initialize tool servers at startup: {e}')
 
+    # Initialize Skills Gate (keyword pre-filter for RCA platform)
+    from open_webui.utils.skills_gate import init as init_skills_gate
+
+    init_skills_gate()
+
     # Mark application as ready to accept traffic from a startup perspective.
     app.state.startup_complete = True
 

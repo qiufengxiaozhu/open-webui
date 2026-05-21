@@ -112,10 +112,7 @@ async def process_uploaded_file(
 ):
     async def _process_handler(db_session):
         try:
-            try:
-                from open_webui.routers.retrieval import ProcessFileForm, process_file
-            except ImportError:
-                raise Exception('File processing is not available')
+            from open_webui.retrieval.utils import build_loader_from_config
 
             content_type = file.content_type
 
@@ -123,6 +120,29 @@ async def process_uploaded_file(
             if content_type and content_type.startswith(('image/', 'video/')):
                 if _is_text_file(file_path):
                     content_type = 'text/plain'
+
+            async def _extract_and_save(content: str = None):
+                if content is not None:
+                    await Files.update_file_data_by_id(
+                        file_item.id,
+                        {'content': content, 'status': 'completed'},
+                        db=db_session,
+                    )
+                else:
+                    file_path_processed = await asyncio.to_thread(Storage.get_file, file_path)
+                    loader = build_loader_from_config(request)
+                    loader.user = user
+                    docs = await loader.aload(
+                        file_item.filename,
+                        file_item.meta.get('content_type') or content_type,
+                        file_path_processed,
+                    )
+                    text_content = ' '.join([doc.page_content for doc in docs])
+                    await Files.update_file_data_by_id(
+                        file_item.id,
+                        {'content': text_content, 'status': 'completed'},
+                        db=db_session,
+                    )
 
             if content_type:
                 stt_supported_content_types = getattr(request.app.state.config, 'STT_SUPPORTED_CONTENT_TYPES', [])
@@ -142,31 +162,16 @@ async def process_uploaded_file(
                         user,
                     )
 
-                    await process_file(
-                        request,
-                        ProcessFileForm(file_id=file_item.id, content=result.get('text', '')),
-                        user=user,
-                        db=db_session,
-                    )
+                    await _extract_and_save(result.get('text', ''))
                 elif (not content_type.startswith(('image/', 'video/'))) or (
                     request.app.state.config.CONTENT_EXTRACTION_ENGINE == 'external'
                 ):
-                    await process_file(
-                        request,
-                        ProcessFileForm(file_id=file_item.id),
-                        user=user,
-                        db=db_session,
-                    )
+                    await _extract_and_save()
                 else:
                     raise Exception(f'File type {content_type} is not supported for processing')
             else:
                 log.info(f'File type {file.content_type} is not provided, but trying to process anyway')
-                await process_file(
-                    request,
-                    ProcessFileForm(file_id=file_item.id),
-                    user=user,
-                    db=db_session,
-                )
+                await _extract_and_save()
 
         except Exception as e:
             log.error(f'Error processing file: {file_item.id}')
@@ -571,15 +576,9 @@ async def update_file_data_content_by_id(
 
     if file.user_id == user.id or user.role == 'admin' or await has_access_to_file(id, 'write', user, db=db):
         try:
-            try:
-                from open_webui.routers.retrieval import ProcessFileForm, process_file
-            except ImportError:
-                raise Exception('File processing is not available')
-
-            await process_file(
-                request,
-                ProcessFileForm(file_id=id, content=form_data.content),
-                user=user,
+            await Files.update_file_data_by_id(
+                id,
+                {'content': form_data.content, 'status': 'completed'},
                 db=db,
             )
             file = await Files.get_file_by_id(id=id, db=db)
