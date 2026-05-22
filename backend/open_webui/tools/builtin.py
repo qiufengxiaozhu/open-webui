@@ -6,10 +6,13 @@ These tools are automatically available when native function calling is enabled.
 IMPORTANT: DO NOT IMPORT THIS MODULE DIRECTLY IN OTHER PARTS OF THE CODEBASE.
 """
 
+import hashlib
 import json
 import logging
+import re
 import time
 import asyncio
+from datetime import datetime
 from typing import Optional
 
 from fastapi import Request
@@ -1254,6 +1257,432 @@ async def update_task(
         )
     except Exception as e:
         log.exception(f'update_task_status error: {e}')
+        return json.dumps({'error': str(e)})
+
+
+# =============================================================================
+# RCA LOG DIAGNOSTIC TOOLS
+# =============================================================================
+
+MAX_RCA_OUTPUT_BYTES = 50 * 1024
+MAX_GREP_MATCHES = 50
+
+
+def _json_response(data: dict) -> str:
+    truncated = False
+    while True:
+        result = json.dumps(data, ensure_ascii=False)
+        if len(result.encode('utf-8')) <= MAX_RCA_OUTPUT_BYTES:
+            break
+        list_keys = [k for k, v in data.items() if isinstance(v, list) and v]
+        if not list_keys:
+            preview = result.encode('utf-8')[: MAX_RCA_OUTPUT_BYTES - 80].decode('utf-8', errors='ignore')
+            return json.dumps({'error': 'Result too large', 'truncated_preview': preview}, ensure_ascii=False)
+        key = max(list_keys, key=lambda k: len(data[k]))
+        data[key] = data[key][: -max(1, len(data[key]) // 5)]
+        truncated = True
+    if truncated:
+        data['truncated'] = True
+    return json.dumps(data, ensure_ascii=False)
+
+
+async def _get_chat_files(metadata: dict, user: dict, filename_filter: str = '') -> list:
+    """Get files associated with current chat from metadata."""
+    if not user:
+        return []
+
+    from open_webui.models.files import Files
+    from open_webui.utils.access_control.files import has_access_to_file
+
+    user_id = user.get('id')
+    user_role = user.get('role', 'user')
+
+    file_ids = []
+    for item in (metadata or {}).get('files', []):
+        if isinstance(item, dict) and item.get('id'):
+            file_ids.append(item['id'])
+
+    files = []
+    for fid in file_ids:
+        f = await Files.get_file_by_id(fid)
+        if not f:
+            continue
+        if filename_filter and filename_filter.lower() not in f.filename.lower():
+            continue
+        if (
+            f.user_id != user_id
+            and user_role != 'admin'
+            and not await has_access_to_file(
+                file_id=fid,
+                access_type='read',
+                user=UserModel(**user),
+            )
+        ):
+            continue
+        files.append(f)
+    return files
+
+
+def _file_lines(file) -> list[str]:
+    content = (file.data or {}).get('content', '') if file.data else ''
+    return content.splitlines()
+
+
+def _parse_time_bound(value: str) -> tuple[Optional[datetime], bool]:
+    """Parse a time bound string. Returns (datetime, is_time_only)."""
+    from open_webui.utils.log_analyzer import _parse_timestamp
+
+    value = value.strip()
+    if re.match(r'^\d{2}:\d{2}(:\d{2})?(?:\.\d+)?$', value):
+        for fmt in ('%H:%M:%S.%f', '%H:%M:%S', '%H:%M'):
+            try:
+                return datetime.strptime(value, fmt), True
+            except ValueError:
+                continue
+        return None, True
+
+    parsed = _parse_timestamp(value)
+    return parsed, False
+
+
+def _line_in_time_window(line: str, start: str, end: str) -> bool:
+    from open_webui.utils.log_analyzer import _extract_timestamp, _parse_timestamp
+
+    ts_str = _extract_timestamp(line)
+    if not ts_str:
+        return False
+
+    line_dt = _parse_timestamp(ts_str)
+    if not line_dt:
+        return False
+
+    start_dt, start_time_only = _parse_time_bound(start)
+    end_dt, end_time_only = _parse_time_bound(end)
+    if start_dt is None or end_dt is None:
+        return False
+
+    if start_time_only or end_time_only:
+        line_time = line_dt.time()
+        return start_dt.time() <= line_time <= end_dt.time()
+
+    return start_dt <= line_dt <= end_dt
+
+
+def _line_matches_level(line: str, level: str) -> bool:
+    if not level:
+        return True
+    from open_webui.utils.log_analyzer import LOG_LEVEL_PATTERN, _normalize_level
+
+    target = _normalize_level(level.strip())
+    for match in LOG_LEVEL_PATTERN.finditer(line):
+        if _normalize_level(match.group(1)) == target:
+            return True
+    return False
+
+
+async def grep_log(
+    pattern: str,
+    file: str = '',
+    context: int = 3,
+    __request__: Request = None,
+    __user__: dict = None,
+    __metadata__: dict = None,
+) -> str:
+    """
+    Search uploaded log files using a regex pattern. Returns matching lines with context.
+    Use this when you need to find specific error patterns, keywords, or log entries in uploaded files.
+
+    :param pattern: Regular expression pattern to search for
+    :param file: Optional filename to search in. If empty, searches all uploaded files in the current chat.
+    :param context: Number of lines of context to show before and after each match (default: 3)
+    :return: JSON with matches [{file, line_number, content, context_before, context_after}]
+    """
+    if not __user__:
+        return json.dumps({'error': 'User context not available'})
+
+    if isinstance(context, str):
+        try:
+            context = int(context)
+        except ValueError:
+            context = 3
+    context = max(0, context)
+
+    try:
+        regex = re.compile(pattern)
+    except re.error as e:
+        return json.dumps({'error': f'Invalid regex pattern: {e}'})
+
+    try:
+        files = await _get_chat_files(__metadata__, __user__, filename_filter=file)
+        if not files:
+            return json.dumps({'error': 'No accessible files found in current chat', 'matches': []})
+
+        matches = []
+        for f in files:
+            lines = _file_lines(f)
+            for idx, line in enumerate(lines):
+                if not regex.search(line):
+                    continue
+                line_no = idx + 1
+                before_start = max(0, idx - context)
+                after_end = min(len(lines), idx + context + 1)
+                matches.append(
+                    {
+                        'file': f.filename,
+                        'line_number': line_no,
+                        'content': line,
+                        'context_before': lines[before_start:idx],
+                        'context_after': lines[idx + 1 : after_end],
+                    }
+                )
+                if len(matches) >= MAX_GREP_MATCHES:
+                    break
+            if len(matches) >= MAX_GREP_MATCHES:
+                break
+
+        return _json_response({'matches': matches, 'total': len(matches), 'limit': MAX_GREP_MATCHES})
+    except Exception as e:
+        log.exception(f'grep_log error: {e}')
+        return json.dumps({'error': str(e)})
+
+
+async def get_context(
+    file: str,
+    line: int,
+    before: int = 10,
+    after: int = 10,
+    __request__: Request = None,
+    __user__: dict = None,
+    __metadata__: dict = None,
+) -> str:
+    """
+    Get lines around a specific line number in an uploaded file.
+    Use this after grep_log finds something interesting, to see more surrounding context.
+
+    :param file: Filename to read from
+    :param line: The line number to center on (1-based)
+    :param before: Number of lines to show before the target line (default: 10)
+    :param after: Number of lines to show after the target line (default: 10)
+    :return: JSON with the requested lines and metadata
+    """
+    if not __user__:
+        return json.dumps({'error': 'User context not available'})
+
+    if isinstance(line, str):
+        try:
+            line = int(line)
+        except ValueError:
+            return json.dumps({'error': 'Invalid line number'})
+    if isinstance(before, str):
+        try:
+            before = int(before)
+        except ValueError:
+            before = 10
+    if isinstance(after, str):
+        try:
+            after = int(after)
+        except ValueError:
+            after = 10
+
+    before = max(0, before)
+    after = max(0, after)
+
+    try:
+        files = await _get_chat_files(__metadata__, __user__, filename_filter=file)
+        if not files:
+            return json.dumps({'error': f'File not found: {file}'})
+
+        f = files[0]
+        lines = _file_lines(f)
+        total_lines = len(lines)
+        if line < 1 or line > total_lines:
+            return json.dumps(
+                {
+                    'error': f'Line {line} out of range (file has {total_lines} lines)',
+                    'file': f.filename,
+                    'total_lines': total_lines,
+                }
+            )
+
+        idx = line - 1
+        start = max(0, idx - before)
+        end = min(total_lines, idx + after + 1)
+        numbered_lines = [
+            {'line_number': i + 1, 'content': lines[i], 'is_target': i == idx} for i in range(start, end)
+        ]
+
+        return _json_response(
+            {
+                'file': f.filename,
+                'target_line': line,
+                'total_lines': total_lines,
+                'lines': numbered_lines,
+            }
+        )
+    except Exception as e:
+        log.exception(f'get_context error: {e}')
+        return json.dumps({'error': str(e)})
+
+
+async def time_window(
+    start: str,
+    end: str,
+    level: str = '',
+    file: str = '',
+    __request__: Request = None,
+    __user__: dict = None,
+    __metadata__: dict = None,
+) -> str:
+    """
+    Filter log entries by time range. Optionally filter by log level.
+    Use this when you need to focus on a specific time period around the fault.
+
+    :param start: Start time (e.g., "2026-05-21 03:12:00" or "03:12:00")
+    :param end: End time (e.g., "2026-05-21 03:45:00" or "03:45:00")
+    :param level: Optional log level filter (e.g., "ERROR", "WARN")
+    :param file: Optional filename. If empty, searches all files.
+    :return: JSON with filtered log entries
+    """
+    if not __user__:
+        return json.dumps({'error': 'User context not available'})
+
+    try:
+        files = await _get_chat_files(__metadata__, __user__, filename_filter=file)
+        if not files:
+            return json.dumps({'error': 'No accessible files found in current chat', 'entries': []})
+
+        entries = []
+        for f in files:
+            lines = _file_lines(f)
+            for idx, line in enumerate(lines):
+                if not _line_in_time_window(line, start, end):
+                    continue
+                if not _line_matches_level(line, level):
+                    continue
+                entries.append(
+                    {
+                        'file': f.filename,
+                        'line_number': idx + 1,
+                        'content': line,
+                    }
+                )
+                if len(entries) >= MAX_GREP_MATCHES:
+                    break
+            if len(entries) >= MAX_GREP_MATCHES:
+                break
+
+        return _json_response(
+            {
+                'start': start,
+                'end': end,
+                'level': level or None,
+                'entries': entries,
+                'total': len(entries),
+                'limit': MAX_GREP_MATCHES,
+            }
+        )
+    except Exception as e:
+        log.exception(f'time_window error: {e}')
+        return json.dumps({'error': str(e)})
+
+
+async def count_errors(
+    file: str = '',
+    top_n: int = 10,
+    __request__: Request = None,
+    __user__: dict = None,
+    __metadata__: dict = None,
+) -> str:
+    """
+    Aggregate and count error patterns in uploaded log files. Groups similar errors and returns top N.
+    Use this to understand the distribution of errors and identify the most frequent issues.
+
+    :param file: Optional filename. If empty, analyzes all uploaded files.
+    :param top_n: Number of top error patterns to return (default: 10)
+    :return: JSON with error pattern statistics
+    """
+    if not __user__:
+        return json.dumps({'error': 'User context not available'})
+
+    if isinstance(top_n, str):
+        try:
+            top_n = int(top_n)
+        except ValueError:
+            top_n = 10
+    top_n = max(1, top_n)
+
+    try:
+        from open_webui.utils.log_analyzer import _is_error_line, _normalize_error_pattern
+
+        files = await _get_chat_files(__metadata__, __user__, filename_filter=file)
+        if not files:
+            return json.dumps({'error': 'No accessible files found in current chat', 'patterns': []})
+
+        pattern_stats: dict[str, dict] = {}
+        for f in files:
+            lines = _file_lines(f)
+            for idx, line in enumerate(lines):
+                if not _is_error_line(line):
+                    continue
+                normalized = _normalize_error_pattern(line)
+                pattern_hash = hashlib.md5(normalized.encode()).hexdigest()
+                if pattern_hash not in pattern_stats:
+                    pattern_stats[pattern_hash] = {
+                        'pattern': normalized,
+                        'count': 0,
+                        'first_line': idx + 1,
+                        'first_file': f.filename,
+                        'example': line.strip()[:500],
+                    }
+                pattern_stats[pattern_hash]['count'] += 1
+
+        patterns = sorted(pattern_stats.values(), key=lambda x: x['count'], reverse=True)[:top_n]
+        total_errors = sum(item['count'] for item in pattern_stats.values())
+
+        return _json_response(
+            {
+                'total_errors': total_errors,
+                'unique_patterns': len(pattern_stats),
+                'patterns': patterns,
+            }
+        )
+    except Exception as e:
+        log.exception(f'count_errors error: {e}')
+        return json.dumps({'error': str(e)})
+
+
+async def list_files(
+    __request__: Request = None,
+    __user__: dict = None,
+    __metadata__: dict = None,
+) -> str:
+    """
+    List all files uploaded in the current chat session.
+    Use this to see what files are available for analysis.
+
+    :return: JSON with file list [{id, filename, size, content_type, has_content}]
+    """
+    if not __user__:
+        return json.dumps({'error': 'User context not available'})
+
+    try:
+        files = await _get_chat_files(__metadata__, __user__)
+        result = []
+        for f in files:
+            meta = f.meta or {}
+            content = (f.data or {}).get('content', '') if f.data else ''
+            result.append(
+                {
+                    'id': f.id,
+                    'filename': f.filename,
+                    'size': meta.get('size'),
+                    'content_type': meta.get('content_type'),
+                    'has_content': bool(content),
+                }
+            )
+        return _json_response({'files': result, 'total': len(result)})
+    except Exception as e:
+        log.exception(f'list_files error: {e}')
         return json.dumps({'error': str(e)})
 
 

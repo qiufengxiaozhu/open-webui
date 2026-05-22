@@ -2480,7 +2480,7 @@ async def process_chat_payload(request, form_data, user, metadata, model):
     variables = form_data.pop('variables', None)
     payload_tools = form_data.get('tools', None)  # snapshot before filters
 
-    # ── Skills Gate (keyword pre-filter) ────────────────────────────
+    # ── Skills Gate (semantic routing) ────────────────────────────
     from open_webui.env import ENABLE_SKILLS_GATE
 
     if ENABLE_SKILLS_GATE:
@@ -2488,25 +2488,11 @@ async def process_chat_payload(request, form_data, user, metadata, model):
 
         gate = get_gate()
         if gate.skills:
-            last_msg = get_last_user_message(form_data.get('messages', []))
-            if last_msg:
-                matched = gate.match_skills(last_msg)
-                if not matched:
-                    reject_text = gate.build_reject_message()
-                    form_data['messages'] = add_or_update_system_message(
-                        '你是一个专业的 RCA 助手。用户的问题与已知技能文档不相关时，必须礼貌拒绝。',
-                        form_data['messages'],
-                    )
-                    set_last_user_message_content(
-                        f'[SYSTEM INSTRUCTION: 请直接回复以下内容，不要添加任何其他内容]\n\n{reject_text}',
-                        form_data['messages'],
-                    )
-                else:
-                    injection = gate.build_system_injection(matched)
-                    form_data['messages'] = add_or_update_system_message(
-                        injection,
-                        form_data['messages'],
-                    )
+            system_prompt = gate.build_full_system_prompt()
+            form_data['messages'] = add_or_update_system_message(
+                system_prompt,
+                form_data['messages'],
+            )
 
     try:
         filter_ids = await get_sorted_filter_ids(request, model, metadata.get('filter_ids', []))

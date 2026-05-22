@@ -73,6 +73,11 @@ from open_webui.tools.builtin import (
     view_skill,
     create_tasks,
     update_task,
+    grep_log,
+    get_context,
+    time_window,
+    count_errors,
+    list_files,
 )
 
 from open_webui.utils.access_control import has_permission
@@ -452,6 +457,10 @@ async def get_builtin_tools(
     # Task management - break down complex work into trackable steps
     if is_builtin_tool_enabled('tasks'):
         builtin_functions.extend([create_tasks, update_task])
+
+    # RCA log diagnostic tools
+    if is_builtin_tool_enabled('rca'):
+        builtin_functions.extend([grep_log, get_context, time_window, count_errors, list_files])
 
     for func in builtin_functions:
         callable = await get_async_tool_function_and_apply_extra_params(

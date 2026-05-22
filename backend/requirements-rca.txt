@@ -95,3 +95,6 @@ docx2txt
 python-pptx
 openpyxl
 pandas
+
+# OCR (optional — requires tesseract binary on PATH)
+pytesseract

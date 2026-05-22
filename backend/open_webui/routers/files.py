@@ -138,6 +138,31 @@ async def process_uploaded_file(
                         file_path_processed,
                     )
                     text_content = ' '.join([doc.page_content for doc in docs])
+
+                    # 对日志文件进行预处理分析
+                    log_extensions = {'.log', '.txt', '.out'}
+                    file_ext = Path(file_item.filename).suffix.lower()
+                    if file_ext in log_extensions or (content_type and 'text/' in content_type):
+                        try:
+                            from open_webui.utils.log_analyzer import (
+                                parse_log_content,
+                                format_log_summary_for_llm,
+                                DEFAULT_MAX_TOKEN_BUDGET,
+                                CHARS_PER_TOKEN,
+                            )
+
+                            analysis = parse_log_content(text_content)
+                            if analysis.get('level_counts', {}).get('ERROR', 0) > 0:
+                                summary = format_log_summary_for_llm(analysis)
+                                max_chars = int(DEFAULT_MAX_TOKEN_BUDGET * CHARS_PER_TOKEN)
+                                text_content = (
+                                    summary
+                                    + '\n\n---\n## 原始日志（裁剪版）\n'
+                                    + text_content[:max_chars]
+                                )
+                        except Exception as e:
+                            log.warning(f'Log analysis failed: {e}')
+
                     await Files.update_file_data_by_id(
                         file_item.id,
                         {'content': text_content, 'status': 'completed'},
@@ -163,7 +188,18 @@ async def process_uploaded_file(
                     )
 
                     await _extract_and_save(result.get('text', ''))
-                elif (not content_type.startswith(('image/', 'video/'))) or (
+                elif content_type.startswith('image/'):
+                    # Vision models see the image directly via image_url.
+                    # Additionally try OCR to extract text as fallback context.
+                    ocr_text = ''
+                    try:
+                        from open_webui.utils.ocr import extract_text_from_image
+                        file_path_processed = await asyncio.to_thread(Storage.get_file, file_path)
+                        ocr_text = await asyncio.to_thread(extract_text_from_image, file_path_processed)
+                    except Exception as ocr_err:
+                        log.info(f'OCR extraction skipped for {file_item.filename}: {ocr_err}')
+                    await _extract_and_save(ocr_text or '[image file — use vision model to view]')
+                elif (not content_type.startswith('video/')) or (
                     request.app.state.config.CONTENT_EXTRACTION_ENGINE == 'external'
                 ):
                     await _extract_and_save()

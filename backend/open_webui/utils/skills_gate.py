@@ -1,13 +1,12 @@
 """
-Skills Gate — keyword-based pre-filter for RCA platform.
+Skills Gate — semantic routing for RCA platform.
 
 Loads Skill documents from ``SKILLS_DIR`` (default ``docs/skills/``),
-each with YAML front-matter containing ``keywords``.  Before every LLM
-call the gate checks the user message against all keyword lists:
-
-* **No match** → reject the request (the LLM is not called).
-* **Match**    → inject matching Skill content into the system message
-  so the LLM answers grounded in the Skill document.
+each with YAML front-matter.  All Skill descriptions and full content
+are injected into the system prompt on every LLM call; the LLM
+autonomously determines whether the user's question relates to a
+registered Skill.  ``keywords`` in front-matter is optional and no
+longer used for gating decisions.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ from typing import Optional
 
 import yaml
 
-from open_webui.env import ENABLE_SKILLS_GATE, SKILLS_DIR, SKILLS_GATE_REJECT_MESSAGE
+from open_webui.env import ENABLE_SKILLS_GATE, SKILLS_DIR
 
 log = logging.getLogger(__name__)
 
@@ -30,19 +29,14 @@ _FRONT_MATTER_RE = re.compile(r'\A---\s*\n(.*?)\n---\s*\n', re.DOTALL)
 @dataclass
 class SkillDoc:
     name: str
-    keywords: list[str]
     description: str
     content: str
     file_path: str
-    keywords_lower: list[str] = field(default_factory=list, repr=False)
-
-    def __post_init__(self):
-        self.keywords = [str(kw) for kw in self.keywords]
-        self.keywords_lower = [kw.lower() for kw in self.keywords]
+    keywords: list[str] = field(default_factory=list)
 
 
 class SkillsGate:
-    """Singleton that caches Skill documents and performs keyword matching."""
+    """Singleton that caches Skill documents and builds semantic-routing prompts."""
 
     def __init__(self):
         self.skills: list[SkillDoc] = []
@@ -64,7 +58,7 @@ class SkillsGate:
                 skill = self._parse_skill_file(raw, str(md_file))
                 if skill:
                     self.skills.append(skill)
-                    log.info('Loaded skill: %s (%d keywords)', skill.name, len(skill.keywords))
+                    log.info('Loaded skill: %s', skill.name)
             except Exception:
                 log.exception('Failed to parse skill file: %s', md_file)
 
@@ -92,9 +86,6 @@ class SkillsGate:
         keywords = meta.get('keywords', [])
         if isinstance(keywords, str):
             keywords = [k.strip() for k in keywords.split(',') if k.strip()]
-        if not keywords:
-            log.warning('Skill file has no keywords, skipping: %s', file_path)
-            return None
 
         body = raw[m.end():]
         return SkillDoc(
@@ -105,34 +96,45 @@ class SkillsGate:
             file_path=file_path,
         )
 
-    def match_skills(self, message: str) -> list[SkillDoc]:
-        """Return all Skills whose keywords appear in *message*."""
+    def build_full_system_prompt(self) -> str:
+        """Build the full system prompt with role, all Skills, and domain constraints."""
         if not self._loaded:
             self.load()
-        msg_lower = message.lower()
-        return [s for s in self.skills if any(kw in msg_lower for kw in s.keywords_lower)]
 
-    def build_reject_message(self) -> str:
-        """Build the rejection text shown when no Skill matches."""
-        if SKILLS_GATE_REJECT_MESSAGE:
-            return SKILLS_GATE_REJECT_MESSAGE
+        skill_names = ', '.join(s.name for s in self.skills) or '（暂无）'
 
-        skill_names = ', '.join(s.name for s in self.skills) or '（暂无技能文档）'
-        return (
-            f'抱歉，您的问题与现有的技能文档不相关，无法回答。\n\n'
-            f'当前可用的技能文档：{skill_names}\n\n'
-            f'请提出与以上技能文档相关的问题。'
-        )
-
-    def build_system_injection(self, matched: list[SkillDoc]) -> str:
-        """Build the system-message fragment with matched Skill content."""
         parts = []
-        for s in matched:
-            parts.append(f'<skill name="{s.name}">\n{s.content}\n</skill>')
+        for s in self.skills:
+            parts.append(
+                f'<skill name="{s.name}" description="{s.description}">\n'
+                f'{s.content}\n</skill>'
+            )
         skills_xml = '\n'.join(parts)
+
         return (
+            '你是专业运维故障诊断助手（RCA - Root Cause Analysis）。\n\n'
+            '## 领域约束（严格遵守）\n'
+            '你仅回答与以下已注册技能文档相关的故障诊断问题。\n'
+            '若用户问题不属于以下任何领域，直接回复：\n'
+            f'"抱歉，当前故障类型不在系统支持范围内。已支持领域：[{skill_names}]"\n'
+            '不要尝试回答超出领域的问题。\n\n'
+            '## 已注册技能文档\n\n'
             f'<skills_context>\n{skills_xml}\n</skills_context>\n\n'
-            '请基于以上技能文档回答用户的问题。如果文档中没有相关信息，请明确告知。'
+            '## 工作流程\n'
+            '1. 先判断问题是否在支持领域内\n'
+            '2. 基于预处理摘要和用户描述给出初步诊断\n'
+            '3. 证据不足时主动调用工具获取更多信息\n'
+            '4. 每次工具调用后更新分析判断\n'
+            '5. 最终输出结构化诊断报告\n\n'
+            '## 输出格式\n'
+            '请输出结构化 Markdown 报告：\n'
+            '- 故障概况\n'
+            '- 根因分析（三层根因）\n'
+            '- 排查路径\n'
+            '- 时间线（如有）\n'
+            '- 修复建议\n'
+            '- 影响范围\n'
+            '- 预防措施'
         )
 
 
