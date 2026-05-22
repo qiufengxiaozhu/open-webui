@@ -96,5 +96,14 @@ python-pptx
 openpyxl
 pandas
 
+# CLI entry point
+typer
+
+# MCP / OAuth / Cloud (required by Open WebUI core)
+mcp
+google-auth
+google-generativeai
+boto3
+
 # OCR (optional — requires tesseract binary on PATH)
 pytesseract
