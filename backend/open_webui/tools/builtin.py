@@ -1686,3 +1686,163 @@ async def list_files(
         return json.dumps({'error': str(e)})
 
 
+# =============================================================================
+# RCA SANDBOX TOOL
+# =============================================================================
+
+
+async def run_script(
+    script: str,
+    lang: str = 'bash',
+    __request__: Request = None,
+    __user__: dict = None,
+    __metadata__: dict = None,
+) -> str:
+    """
+    Execute an analysis script in a restricted sandbox environment.
+    Only whitelisted commands (grep, awk, sed, sort, uniq, wc, head, tail, cat, python3, jq, etc.)
+    are allowed. Network access is disabled and execution is time-limited.
+    Use this when you need to run custom analysis that the other tools can't handle.
+
+    :param script: The script content to execute
+    :param lang: Script language - "bash" or "python3" (default: bash)
+    :return: JSON with stdout, stderr, exit_code, and execution metadata
+    """
+    if not __user__:
+        return json.dumps({'error': 'User context not available'})
+
+    from open_webui.env import ENABLE_SANDBOX_SHELL, SANDBOX_TIMEOUT, SANDBOX_MAX_OUTPUT, SANDBOX_ALLOWED_COMMANDS
+
+    if not ENABLE_SANDBOX_SHELL:
+        return json.dumps({
+            'error': 'Sandbox shell is disabled. Set ENABLE_SANDBOX_SHELL=true to enable.',
+            'hint': 'Use grep_log, get_context, time_window, and count_errors tools instead.',
+        })
+
+    user_role = (__user__ or {}).get('role', 'user')
+    if user_role != 'admin':
+        return json.dumps({'error': 'Only administrators can use the sandbox shell.'})
+
+    lang = lang.strip().lower()
+    if lang not in ('bash', 'python3'):
+        return json.dumps({'error': f'Unsupported language: {lang}. Use "bash" or "python3".'})
+
+    if not script or not script.strip():
+        return json.dumps({'error': 'Script content is empty.'})
+
+    if lang == 'bash':
+        validation_error = _validate_bash_script(script, SANDBOX_ALLOWED_COMMANDS)
+        if validation_error:
+            return json.dumps({
+                'error': f'Script uses disallowed commands: {validation_error}',
+                'allowed_commands': sorted(SANDBOX_ALLOWED_COMMANDS),
+            })
+
+    import subprocess
+    import tempfile
+    import os
+
+    chat_files = await _get_chat_files(__metadata__ or {}, __user__)
+    file_paths = {}
+    for f in chat_files:
+        content = (f.data or {}).get('content', '') if f.data else ''
+        if content:
+            file_paths[f.filename] = content
+
+    try:
+        with tempfile.TemporaryDirectory(prefix='rca_sandbox_') as tmpdir:
+            for fname, content in file_paths.items():
+                safe_name = re.sub(r'[^\w.\-]', '_', fname)
+                fpath = os.path.join(tmpdir, safe_name)
+                with open(fpath, 'w', encoding='utf-8') as fh:
+                    fh.write(content)
+
+            if lang == 'bash':
+                script_file = os.path.join(tmpdir, '_script.sh')
+                with open(script_file, 'w', encoding='utf-8') as fh:
+                    fh.write(script)
+                cmd = ['bash', script_file]
+            else:
+                script_file = os.path.join(tmpdir, '_script.py')
+                with open(script_file, 'w', encoding='utf-8') as fh:
+                    fh.write(script)
+                cmd = ['python3', script_file]
+
+            env = {
+                'PATH': '/usr/local/bin:/usr/bin:/bin',
+                'HOME': tmpdir,
+                'LANG': 'en_US.UTF-8',
+                'FILES_DIR': tmpdir,
+            }
+
+            proc = await asyncio.to_thread(
+                subprocess.run,
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=SANDBOX_TIMEOUT,
+                cwd=tmpdir,
+                env=env,
+            )
+
+            stdout = proc.stdout or ''
+            stderr = proc.stderr or ''
+
+            stdout_truncated = len(stdout.encode('utf-8')) > SANDBOX_MAX_OUTPUT
+            stderr_truncated = len(stderr.encode('utf-8')) > SANDBOX_MAX_OUTPUT
+
+            if stdout_truncated:
+                stdout = stdout.encode('utf-8')[:SANDBOX_MAX_OUTPUT].decode('utf-8', errors='ignore')
+            if stderr_truncated:
+                stderr = stderr.encode('utf-8')[:SANDBOX_MAX_OUTPUT].decode('utf-8', errors='ignore')
+
+            return _json_response({
+                'exit_code': proc.returncode,
+                'stdout': stdout,
+                'stderr': stderr,
+                'stdout_truncated': stdout_truncated,
+                'stderr_truncated': stderr_truncated,
+                'lang': lang,
+                'timeout': SANDBOX_TIMEOUT,
+                'files_available': list(file_paths.keys()),
+            })
+
+    except subprocess.TimeoutExpired:
+        return json.dumps({
+            'error': f'Script execution timed out after {SANDBOX_TIMEOUT} seconds.',
+            'timeout': SANDBOX_TIMEOUT,
+        })
+    except Exception as e:
+        log.exception(f'run_script error: {e}')
+        return json.dumps({'error': str(e)})
+
+
+def _validate_bash_script(script: str, allowed: set) -> str:
+    """Check bash script for disallowed commands. Returns error string or empty."""
+    dangerous = {
+        'rm', 'rmdir', 'mkfs', 'dd', 'chmod', 'chown', 'kill', 'killall',
+        'shutdown', 'reboot', 'halt', 'poweroff', 'mount', 'umount',
+        'wget', 'curl', 'nc', 'ncat', 'ssh', 'scp', 'rsync', 'ftp',
+        'pip', 'pip3', 'npm', 'apt', 'yum', 'dnf', 'pacman',
+        'docker', 'kubectl', 'systemctl', 'service',
+        'su', 'sudo', 'passwd', 'useradd', 'userdel',
+        'iptables', 'nft', 'firewall-cmd',
+        'eval', 'exec', 'source',
+    }
+    lines = script.splitlines()
+    violations = set()
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        parts = re.split(r'[|;&\s]+', line)
+        for part in parts:
+            cmd = part.strip('(').strip(')').strip()
+            if not cmd:
+                continue
+            base_cmd = cmd.split('/')[-1]
+            if base_cmd in dangerous:
+                violations.add(base_cmd)
+    return ', '.join(sorted(violations)) if violations else ''
+
+

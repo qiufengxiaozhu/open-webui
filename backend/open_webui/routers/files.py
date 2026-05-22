@@ -169,7 +169,39 @@ async def process_uploaded_file(
                         db=db_session,
                     )
 
-            if content_type:
+            archive_extensions = {'.zip', '.tar', '.gz', '.tgz', '.tar.gz'}
+            file_ext = Path(file_item.filename).suffix.lower()
+            is_archive = file_ext in archive_extensions or (
+                file_ext == '.gz' and file_item.filename.lower().endswith('.tar.gz')
+            )
+            archive_mimes = {
+                'application/zip', 'application/x-zip-compressed',
+                'application/gzip', 'application/x-gzip',
+                'application/x-tar', 'application/x-compressed-tar',
+            }
+
+            if is_archive or (content_type and content_type in archive_mimes):
+                from open_webui.utils.archive import extract_logs_from_archive
+                file_path_processed = await asyncio.to_thread(Storage.get_file, file_path)
+                archive_content = await asyncio.to_thread(
+                    extract_logs_from_archive, file_path_processed, file_item.filename,
+                )
+                if archive_content:
+                    from open_webui.utils.log_analyzer import (
+                        parse_log_content, format_log_summary_for_llm,
+                        DEFAULT_MAX_TOKEN_BUDGET, CHARS_PER_TOKEN,
+                    )
+                    analysis = parse_log_content(archive_content)
+                    if analysis.get('level_counts', {}).get('ERROR', 0) > 0:
+                        summary = format_log_summary_for_llm(analysis)
+                        max_chars = int(DEFAULT_MAX_TOKEN_BUDGET * CHARS_PER_TOKEN)
+                        archive_content = (
+                            summary + '\n\n---\n## 原始日志（裁剪版）\n' + archive_content[:max_chars]
+                        )
+                    await _extract_and_save(archive_content)
+                else:
+                    await _extract_and_save('[archive contained no log files]')
+            elif content_type:
                 stt_supported_content_types = getattr(request.app.state.config, 'STT_SUPPORTED_CONTENT_TYPES', [])
 
                 if strict_match_mime_type(stt_supported_content_types, content_type):

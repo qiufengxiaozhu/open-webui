@@ -324,6 +324,20 @@ SKILLS_DIR = Path(os.getenv('SKILLS_DIR', BASE_DIR / 'docs' / 'skills')).resolve
 SKILLS_GATE_REJECT_MESSAGE = os.environ.get('SKILLS_GATE_REJECT_MESSAGE', '')
 
 ####################################
+# RCA Sandbox
+####################################
+
+ENABLE_SANDBOX_SHELL = os.environ.get('ENABLE_SANDBOX_SHELL', 'false').lower() == 'true'
+SANDBOX_TIMEOUT = int(os.environ.get('SANDBOX_TIMEOUT', '30'))
+SANDBOX_MAX_OUTPUT = int(os.environ.get('SANDBOX_MAX_OUTPUT', '51200'))
+SANDBOX_ALLOWED_COMMANDS = set(
+    os.environ.get(
+        'SANDBOX_ALLOWED_COMMANDS',
+        'grep,awk,sed,sort,uniq,wc,head,tail,cat,python3,jq,find,ls,df,du,free,uptime,date,tr,cut,paste,comm,diff,tee',
+    ).split(',')
+)
+
+####################################
 # Database
 ####################################
 
