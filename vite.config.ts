@@ -1,8 +1,23 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
+function rewriteStaticPaths() {
+	return {
+		name: 'rewrite-static-paths',
+		configureServer(server) {
+			server.middlewares.use((req, _res, next) => {
+				if (req.url?.startsWith('/static/') && !req.url.startsWith('/static/assets/')) {
+					req.url = req.url.replace('/static/', '/');
+				}
+				next();
+			});
+		}
+	};
+}
+
 export default defineConfig({
 	plugins: [
+		rewriteStaticPaths(),
 		sveltekit()
 	],
 	define: {
