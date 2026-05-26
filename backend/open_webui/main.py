@@ -300,6 +300,7 @@ from open_webui.env import (
     LOG_FORMAT,
     # OAuth Back-Channel Logout
     ENABLE_OAUTH_BACKCHANNEL_LOGOUT,
+    ENABLE_SKILLS_GATE,
 )
 
 
@@ -1099,6 +1100,7 @@ async def chat_completion(
                     if (
                         form_data.get('params', {}).get('function_calling') == 'native'
                         or model_info_params.get('function_calling') == 'native'
+                        or ENABLE_SKILLS_GATE
                     )
                     else 'default'
                 ),

@@ -1266,7 +1266,8 @@ async def update_task(
 # =============================================================================
 
 MAX_RCA_OUTPUT_BYTES = 50 * 1024
-MAX_GREP_MATCHES = 50
+MAX_GREP_MATCHES = 30
+MAX_LINE_LENGTH = 500
 
 
 def _json_response(data: dict) -> str:
@@ -1356,6 +1357,13 @@ def _read_all_lines_from_extracted(extracted_dir: str, filename_filter: str = ''
     return results
 
 
+def _truncate_line(line: str, max_len: int = MAX_LINE_LENGTH) -> str:
+    """截断过长的日志行，避免返回给模型的数据量过大。"""
+    if len(line) <= max_len:
+        return line
+    return line[:max_len] + f'... [截断，原长{len(line)}字符]'
+
+
 def _grep_in_extracted_dir(extracted_dir: str, regex, filename_filter: str = '',
                            context: int = 3, max_matches: int = 200) -> list[dict]:
     """在磁盘上的解压目录中搜索日志文件，返回匹配结果。"""
@@ -1378,9 +1386,9 @@ def _grep_in_extracted_dir(extracted_dir: str, regex, filename_filter: str = '',
                     matches.append({
                         'file': rel_path,
                         'line_number': idx + 1,
-                        'content': line,
-                        'context_before': [l.rstrip('\n') for l in lines[before_start:idx]],
-                        'context_after': [l.rstrip('\n') for l in lines[idx + 1:after_end]],
+                        'content': _truncate_line(line),
+                        'context_before': [_truncate_line(l.rstrip('\n')) for l in lines[before_start:idx]],
+                        'context_after': [_truncate_line(l.rstrip('\n')) for l in lines[idx + 1:after_end]],
                     })
                     if len(matches) >= max_matches:
                         return matches
@@ -1505,9 +1513,9 @@ async def grep_log(
                         {
                             'file': f.filename,
                             'line_number': line_no,
-                            'content': line,
-                            'context_before': lines[before_start:idx],
-                            'context_after': lines[idx + 1 : after_end],
+                            'content': _truncate_line(line),
+                            'context_before': [_truncate_line(l) for l in lines[before_start:idx]],
+                            'context_after': [_truncate_line(l) for l in lines[idx + 1 : after_end]],
                         }
                     )
                     if len(matches) >= MAX_GREP_MATCHES:
