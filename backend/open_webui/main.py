@@ -498,6 +498,12 @@ async def lifespan(app: FastAPI):
 
     init_skills_gate()
 
+    # 启动解压目录定期清理任务（默认 7 天过期，每 24 小时检查一次）
+    from open_webui.utils.archive import periodic_extracted_cleanup
+    from open_webui.config import UPLOAD_DIR
+
+    asyncio.create_task(periodic_extracted_cleanup(str(UPLOAD_DIR)))
+
     # Mark application as ready to accept traffic from a startup perspective.
     app.state.startup_complete = True
 
@@ -1093,6 +1099,7 @@ async def chat_completion(
                     if (
                         form_data.get('params', {}).get('function_calling') == 'native'
                         or model_info_params.get('function_calling') == 'native'
+                        or ENABLE_SKILLS_GATE
                     )
                     else 'default'
                 ),

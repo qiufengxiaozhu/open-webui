@@ -181,8 +181,17 @@ async def process_uploaded_file(
             }
 
             if is_archive or (content_type and content_type in archive_mimes):
-                from open_webui.utils.archive import extract_logs_from_archive
+                from open_webui.utils.archive import extract_logs_from_archive, extract_archive_to_dir
+                from open_webui.config import UPLOAD_DIR
+
                 file_path_processed = await asyncio.to_thread(Storage.get_file, file_path)
+
+                # 将压缩包内容解压到磁盘，供 RCA 工具直接访问完整原始日志
+                extracted_dir = str(Path(UPLOAD_DIR) / 'extracted' / file_item.id)
+                extracted_files = await asyncio.to_thread(
+                    extract_archive_to_dir, file_path_processed, extracted_dir, file_item.filename,
+                )
+
                 archive_content = await asyncio.to_thread(
                     extract_logs_from_archive, file_path_processed, file_item.filename,
                 )
@@ -192,13 +201,23 @@ async def process_uploaded_file(
                         DEFAULT_MAX_TOKEN_BUDGET, CHARS_PER_TOKEN,
                     )
                     analysis = parse_log_content(archive_content)
+                    summary_content = archive_content
                     if analysis.get('level_counts', {}).get('ERROR', 0) > 0:
                         summary = format_log_summary_for_llm(analysis)
                         max_chars = int(DEFAULT_MAX_TOKEN_BUDGET * CHARS_PER_TOKEN)
-                        archive_content = (
+                        summary_content = (
                             summary + '\n\n---\n## 原始日志（裁剪版）\n' + archive_content[:max_chars]
                         )
-                    await _extract_and_save(archive_content)
+                    await Files.update_file_data_by_id(
+                        file_item.id,
+                        {
+                            'content': summary_content,
+                            'extracted_dir': extracted_dir if extracted_files else None,
+                            'extracted_files': extracted_files,
+                            'status': 'completed',
+                        },
+                        db=db_session,
+                    )
                 else:
                     await _extract_and_save('[archive contained no log files]')
             elif content_type:
@@ -852,6 +871,11 @@ async def delete_file_by_id(id: str, user=Depends(get_verified_user), db: AsyncS
         if result:
             try:
                 await asyncio.to_thread(Storage.delete_file, file.path)
+                # 清理压缩包对应的解压目录
+                extracted_dir = (file.data or {}).get('extracted_dir') if file.data else None
+                if extracted_dir and os.path.isdir(extracted_dir):
+                    import shutil
+                    await asyncio.to_thread(shutil.rmtree, extracted_dir, True)
                 if ASYNC_VECTOR_DB_CLIENT:
                     await ASYNC_VECTOR_DB_CLIENT.delete(collection_name=f'file-{id}')
             except Exception as e:

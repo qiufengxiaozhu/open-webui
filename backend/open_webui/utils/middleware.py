@@ -2930,12 +2930,13 @@ async def process_chat_payload(request, form_data, user, metadata, model):
         if mcp_clients:
             metadata['mcp_clients'] = mcp_clients
 
-        # Inject builtin tools for native function calling based on enabled features and model capability
-        # Check if builtin_tools capability is enabled for this model (defaults to True if not specified)
+        # 注入内建工具：native function calling 或 Skills Gate 激活时
         builtin_tools_enabled = (model.get('info', {}).get('meta', {}).get('capabilities') or {}).get(
             'builtin_tools', True
         )
-        if metadata.get('params', {}).get('function_calling') == 'native' and builtin_tools_enabled:
+        from open_webui.env import ENABLE_SKILLS_GATE
+        is_native = metadata.get('params', {}).get('function_calling') == 'native'
+        if (is_native or ENABLE_SKILLS_GATE) and builtin_tools_enabled:
             # Add file context to user messages
             chat_id = metadata.get('chat_id')
             form_data['messages'] = await add_file_context(form_data.get('messages', []), chat_id, user)

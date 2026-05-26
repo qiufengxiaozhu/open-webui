@@ -9,6 +9,7 @@ IMPORTANT: DO NOT IMPORT THIS MODULE DIRECTLY IN OTHER PARTS OF THE CODEBASE.
 import hashlib
 import json
 import logging
+import os
 import re
 import time
 import asyncio
@@ -1328,6 +1329,66 @@ def _file_lines(file) -> list[str]:
     return content.splitlines()
 
 
+def _get_extracted_dir(file) -> str | None:
+    """获取压缩包文件对应的磁盘解压目录路径，不存在则返回 None。"""
+    data = file.data or {} if file.data else {}
+    extracted_dir = data.get('extracted_dir')
+    if extracted_dir and os.path.isdir(extracted_dir):
+        return extracted_dir
+    return None
+
+
+def _read_all_lines_from_extracted(extracted_dir: str, filename_filter: str = '') -> list[tuple[str, list[str]]]:
+    """从解压目录中读取所有日志文件，返回 (相对路径, 行列表) 元组。"""
+    results = []
+    for root, _dirs, files in os.walk(extracted_dir):
+        for fname in sorted(files):
+            fpath = os.path.join(root, fname)
+            rel_path = os.path.relpath(fpath, extracted_dir)
+            if filename_filter and filename_filter.lower() not in rel_path.lower():
+                continue
+            try:
+                with open(fpath, 'r', encoding='utf-8', errors='replace') as fh:
+                    lines = [l.rstrip('\n') for l in fh.readlines()]
+                results.append((rel_path, lines))
+            except Exception:
+                continue
+    return results
+
+
+def _grep_in_extracted_dir(extracted_dir: str, regex, filename_filter: str = '',
+                           context: int = 3, max_matches: int = 200) -> list[dict]:
+    """在磁盘上的解压目录中搜索日志文件，返回匹配结果。"""
+    matches = []
+    for root, _dirs, files in os.walk(extracted_dir):
+        for fname in sorted(files):
+            fpath = os.path.join(root, fname)
+            rel_path = os.path.relpath(fpath, extracted_dir)
+            if filename_filter and filename_filter.lower() not in rel_path.lower():
+                continue
+            try:
+                with open(fpath, 'r', encoding='utf-8', errors='replace') as fh:
+                    lines = fh.readlines()
+                for idx, line in enumerate(lines):
+                    line = line.rstrip('\n')
+                    if not regex.search(line):
+                        continue
+                    before_start = max(0, idx - context)
+                    after_end = min(len(lines), idx + context + 1)
+                    matches.append({
+                        'file': rel_path,
+                        'line_number': idx + 1,
+                        'content': line,
+                        'context_before': [l.rstrip('\n') for l in lines[before_start:idx]],
+                        'context_after': [l.rstrip('\n') for l in lines[idx + 1:after_end]],
+                    })
+                    if len(matches) >= max_matches:
+                        return matches
+            except Exception:
+                continue
+    return matches
+
+
 def _parse_time_bound(value: str) -> tuple[Optional[datetime], bool]:
     """Parse a time bound string. Returns (datetime, is_time_only)."""
     from open_webui.utils.log_analyzer import _parse_timestamp
@@ -1413,30 +1474,42 @@ async def grep_log(
         return json.dumps({'error': f'Invalid regex pattern: {e}'})
 
     try:
-        files = await _get_chat_files(__metadata__, __user__, filename_filter=file)
+        files = await _get_chat_files(__metadata__, __user__, filename_filter='')
         if not files:
             return json.dumps({'error': 'No accessible files found in current chat', 'matches': []})
 
         matches = []
         for f in files:
-            lines = _file_lines(f)
-            for idx, line in enumerate(lines):
-                if not regex.search(line):
-                    continue
-                line_no = idx + 1
-                before_start = max(0, idx - context)
-                after_end = min(len(lines), idx + context + 1)
-                matches.append(
-                    {
-                        'file': f.filename,
-                        'line_number': line_no,
-                        'content': line,
-                        'context_before': lines[before_start:idx],
-                        'context_after': lines[idx + 1 : after_end],
-                    }
+            extracted_dir = _get_extracted_dir(f)
+            if extracted_dir:
+                disk_matches = await asyncio.to_thread(
+                    _grep_in_extracted_dir, extracted_dir, regex,
+                    filename_filter=file, context=context, max_matches=MAX_GREP_MATCHES,
                 )
-                if len(matches) >= MAX_GREP_MATCHES:
-                    break
+                for m in disk_matches:
+                    m['file'] = f'{f.filename}/{m["file"]}'
+                matches.extend(disk_matches)
+            else:
+                if file and file.lower() not in f.filename.lower():
+                    continue
+                lines = _file_lines(f)
+                for idx, line in enumerate(lines):
+                    if not regex.search(line):
+                        continue
+                    line_no = idx + 1
+                    before_start = max(0, idx - context)
+                    after_end = min(len(lines), idx + context + 1)
+                    matches.append(
+                        {
+                            'file': f.filename,
+                            'line_number': line_no,
+                            'content': line,
+                            'context_before': lines[before_start:idx],
+                            'context_after': lines[idx + 1 : after_end],
+                        }
+                    )
+                    if len(matches) >= MAX_GREP_MATCHES:
+                        break
             if len(matches) >= MAX_GREP_MATCHES:
                 break
 
@@ -1488,18 +1561,40 @@ async def get_context(
     after = max(0, after)
 
     try:
-        files = await _get_chat_files(__metadata__, __user__, filename_filter=file)
-        if not files:
+        all_files = await _get_chat_files(__metadata__, __user__)
+        if not all_files:
             return json.dumps({'error': f'File not found: {file}'})
 
-        f = files[0]
-        lines = _file_lines(f)
-        total_lines = len(lines)
+        # Try extracted dirs first: file param may be "archive.zip/subdir/file.log"
+        target_lines = None
+        actual_file_name = file
+
+        for f in all_files:
+            extracted_dir = _get_extracted_dir(f)
+            if extracted_dir:
+                prefix = f'{f.filename}/'
+                sub_path = file[len(prefix):] if file.startswith(prefix) else file
+                file_results = await asyncio.to_thread(
+                    _read_all_lines_from_extracted, extracted_dir, sub_path,
+                )
+                if file_results:
+                    actual_file_name = f'{f.filename}/{file_results[0][0]}'
+                    target_lines = file_results[0][1]
+                    break
+
+        if target_lines is None:
+            matched = [f for f in all_files if file.lower() in f.filename.lower()]
+            if not matched:
+                return json.dumps({'error': f'File not found: {file}'})
+            actual_file_name = matched[0].filename
+            target_lines = _file_lines(matched[0])
+
+        total_lines = len(target_lines)
         if line < 1 or line > total_lines:
             return json.dumps(
                 {
                     'error': f'Line {line} out of range (file has {total_lines} lines)',
-                    'file': f.filename,
+                    'file': actual_file_name,
                     'total_lines': total_lines,
                 }
             )
@@ -1508,12 +1603,12 @@ async def get_context(
         start = max(0, idx - before)
         end = min(total_lines, idx + after + 1)
         numbered_lines = [
-            {'line_number': i + 1, 'content': lines[i], 'is_target': i == idx} for i in range(start, end)
+            {'line_number': i + 1, 'content': target_lines[i], 'is_target': i == idx} for i in range(start, end)
         ]
 
         return _json_response(
             {
-                'file': f.filename,
+                'file': actual_file_name,
                 'target_line': line,
                 'total_lines': total_lines,
                 'lines': numbered_lines,
@@ -1547,27 +1642,48 @@ async def time_window(
         return json.dumps({'error': 'User context not available'})
 
     try:
-        files = await _get_chat_files(__metadata__, __user__, filename_filter=file)
-        if not files:
+        all_files = await _get_chat_files(__metadata__, __user__)
+        if not all_files:
             return json.dumps({'error': 'No accessible files found in current chat', 'entries': []})
 
         entries = []
-        for f in files:
-            lines = _file_lines(f)
-            for idx, line in enumerate(lines):
-                if not _line_in_time_window(line, start, end):
+        for f in all_files:
+            extracted_dir = _get_extracted_dir(f)
+            if extracted_dir:
+                file_results = await asyncio.to_thread(
+                    _read_all_lines_from_extracted, extracted_dir, file,
+                )
+                for rel_path, lines in file_results:
+                    for idx, line in enumerate(lines):
+                        if not _line_in_time_window(line, start, end):
+                            continue
+                        if not _line_matches_level(line, level):
+                            continue
+                        entries.append({
+                            'file': f'{f.filename}/{rel_path}',
+                            'line_number': idx + 1,
+                            'content': line,
+                        })
+                        if len(entries) >= MAX_GREP_MATCHES:
+                            break
+                    if len(entries) >= MAX_GREP_MATCHES:
+                        break
+            else:
+                if file and file.lower() not in f.filename.lower():
                     continue
-                if not _line_matches_level(line, level):
-                    continue
-                entries.append(
-                    {
+                lines = _file_lines(f)
+                for idx, line_text in enumerate(lines):
+                    if not _line_in_time_window(line_text, start, end):
+                        continue
+                    if not _line_matches_level(line_text, level):
+                        continue
+                    entries.append({
                         'file': f.filename,
                         'line_number': idx + 1,
-                        'content': line,
-                    }
-                )
-                if len(entries) >= MAX_GREP_MATCHES:
-                    break
+                        'content': line_text,
+                    })
+                    if len(entries) >= MAX_GREP_MATCHES:
+                        break
             if len(entries) >= MAX_GREP_MATCHES:
                 break
 
@@ -1614,13 +1730,13 @@ async def count_errors(
     try:
         from open_webui.utils.log_analyzer import _is_error_line, _normalize_error_pattern
 
-        files = await _get_chat_files(__metadata__, __user__, filename_filter=file)
-        if not files:
+        all_files = await _get_chat_files(__metadata__, __user__)
+        if not all_files:
             return json.dumps({'error': 'No accessible files found in current chat', 'patterns': []})
 
         pattern_stats: dict[str, dict] = {}
-        for f in files:
-            lines = _file_lines(f)
+
+        def _count_lines(lines: list[str], file_label: str):
             for idx, line in enumerate(lines):
                 if not _is_error_line(line):
                     continue
@@ -1631,10 +1747,23 @@ async def count_errors(
                         'pattern': normalized,
                         'count': 0,
                         'first_line': idx + 1,
-                        'first_file': f.filename,
+                        'first_file': file_label,
                         'example': line.strip()[:500],
                     }
                 pattern_stats[pattern_hash]['count'] += 1
+
+        for f in all_files:
+            extracted_dir = _get_extracted_dir(f)
+            if extracted_dir:
+                file_results = await asyncio.to_thread(
+                    _read_all_lines_from_extracted, extracted_dir, file,
+                )
+                for rel_path, lines in file_results:
+                    _count_lines(lines, f'{f.filename}/{rel_path}')
+            else:
+                if file and file.lower() not in f.filename.lower():
+                    continue
+                _count_lines(_file_lines(f), f.filename)
 
         patterns = sorted(pattern_stats.values(), key=lambda x: x['count'], reverse=True)[:top_n]
         total_errors = sum(item['count'] for item in pattern_stats.values())
@@ -1671,15 +1800,21 @@ async def list_files(
         for f in files:
             meta = f.meta or {}
             content = (f.data or {}).get('content', '') if f.data else ''
-            result.append(
-                {
-                    'id': f.id,
-                    'filename': f.filename,
-                    'size': meta.get('size'),
-                    'content_type': meta.get('content_type'),
-                    'has_content': bool(content),
-                }
-            )
+            data = f.data or {}
+            extracted_files = data.get('extracted_files', []) if data else []
+            extracted_dir = _get_extracted_dir(f)
+            entry = {
+                'id': f.id,
+                'filename': f.filename,
+                'size': meta.get('size'),
+                'content_type': meta.get('content_type'),
+                'has_content': bool(content),
+            }
+            if extracted_files:
+                entry['is_archive'] = True
+                entry['extracted_files'] = extracted_files
+                entry['extracted_on_disk'] = bool(extracted_dir)
+            result.append(entry)
         return _json_response({'files': result, 'total': len(result)})
     except Exception as e:
         log.exception(f'list_files error: {e}')
@@ -1744,10 +1879,15 @@ async def run_script(
 
     chat_files = await _get_chat_files(__metadata__ or {}, __user__)
     file_paths = {}
+    extracted_dirs = []
     for f in chat_files:
-        content = (f.data or {}).get('content', '') if f.data else ''
-        if content:
-            file_paths[f.filename] = content
+        extracted_dir = _get_extracted_dir(f)
+        if extracted_dir:
+            extracted_dirs.append(extracted_dir)
+        else:
+            content = (f.data or {}).get('content', '') if f.data else ''
+            if content:
+                file_paths[f.filename] = content
 
     try:
         with tempfile.TemporaryDirectory(prefix='rca_sandbox_') as tmpdir:
@@ -1756,6 +1896,12 @@ async def run_script(
                 fpath = os.path.join(tmpdir, safe_name)
                 with open(fpath, 'w', encoding='utf-8') as fh:
                     fh.write(content)
+
+            # 将解压目录通过符号链接注入沙箱
+            for idx, edir in enumerate(extracted_dirs):
+                link_name = os.path.join(tmpdir, f'logs_{idx}' if idx > 0 else 'logs')
+                if not os.path.exists(link_name):
+                    os.symlink(edir, link_name)
 
             if lang == 'bash':
                 script_file = os.path.join(tmpdir, '_script.sh')
@@ -1768,11 +1914,13 @@ async def run_script(
                     fh.write(script)
                 cmd = ['python3', script_file]
 
+            log_dir = extracted_dirs[0] if extracted_dirs else tmpdir
             env = {
                 'PATH': '/usr/local/bin:/usr/bin:/bin',
                 'HOME': tmpdir,
                 'LANG': 'en_US.UTF-8',
                 'FILES_DIR': tmpdir,
+                'LOG_DIR': log_dir,
             }
 
             proc = await asyncio.to_thread(
@@ -1805,6 +1953,8 @@ async def run_script(
                 'lang': lang,
                 'timeout': SANDBOX_TIMEOUT,
                 'files_available': list(file_paths.keys()),
+                'extracted_log_dirs': extracted_dirs,
+                'log_dir': log_dir,
             })
 
     except subprocess.TimeoutExpired:
