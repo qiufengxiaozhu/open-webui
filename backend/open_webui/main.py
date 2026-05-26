@@ -1099,7 +1099,6 @@ async def chat_completion(
                     if (
                         form_data.get('params', {}).get('function_calling') == 'native'
                         or model_info_params.get('function_calling') == 'native'
-                        or ENABLE_SKILLS_GATE
                     )
                     else 'default'
                 ),

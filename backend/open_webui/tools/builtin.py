@@ -1474,8 +1474,10 @@ async def grep_log(
         return json.dumps({'error': f'Invalid regex pattern: {e}'})
 
     try:
+        log.info(f'[grep_log] 开始搜索 pattern={pattern}, file={file}')
         files = await _get_chat_files(__metadata__, __user__, filename_filter='')
         if not files:
+            log.info('[grep_log] 未找到任何文件')
             return json.dumps({'error': 'No accessible files found in current chat', 'matches': []})
 
         matches = []
@@ -1513,6 +1515,7 @@ async def grep_log(
             if len(matches) >= MAX_GREP_MATCHES:
                 break
 
+        log.info(f'[grep_log] 搜索完成，找到 {len(matches)} 条匹配')
         return _json_response({'matches': matches, 'total': len(matches), 'limit': MAX_GREP_MATCHES})
     except Exception as e:
         log.exception(f'grep_log error: {e}')
@@ -1903,6 +1906,14 @@ async def run_script(
                 if not os.path.exists(link_name):
                     os.symlink(edir, link_name)
 
+            # 将预置的分析脚本目录链接到沙箱中
+            from open_webui.env import SKILLS_DIR
+            skills_scripts_dir = os.path.join(str(SKILLS_DIR), 'scripts')
+            if os.path.isdir(skills_scripts_dir):
+                scripts_link = os.path.join(tmpdir, 'scripts')
+                if not os.path.exists(scripts_link):
+                    os.symlink(skills_scripts_dir, scripts_link)
+
             if lang == 'bash':
                 script_file = os.path.join(tmpdir, '_script.sh')
                 with open(script_file, 'w', encoding='utf-8') as fh:
@@ -1921,6 +1932,7 @@ async def run_script(
                 'LANG': 'en_US.UTF-8',
                 'FILES_DIR': tmpdir,
                 'LOG_DIR': log_dir,
+                'SCRIPTS_DIR': os.path.join(tmpdir, 'scripts'),
             }
 
             proc = await asyncio.to_thread(
