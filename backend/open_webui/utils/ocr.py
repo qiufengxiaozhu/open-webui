@@ -23,10 +23,13 @@ def extract_text_from_image(file_path: str) -> str:
 
     # --- pytesseract ---
     try:
-        from PIL import Image
+        from PIL import Image, ImageFilter
         import pytesseract
 
         img = Image.open(file_path)
+        if img.mode != 'L':
+            img = img.convert('L')
+
         text = pytesseract.image_to_string(img, lang='chi_sim+eng')
         text = text.strip()
         if text:

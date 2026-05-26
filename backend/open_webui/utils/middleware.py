@@ -2125,7 +2125,58 @@ def apply_params_to_form_data(form_data, model):
     return form_data
 
 
-async def convert_url_images_to_base64(form_data):
+async def _extract_ocr_from_image_files(image_files: list[dict]) -> list[str]:
+    """Extract text from image files via OCR for non-vision models.
+
+    Returns a list of formatted OCR text blocks, one per image.
+    """
+    results = []
+    for f in image_files:
+        url = f.get('url', '')
+        if not url:
+            continue
+        try:
+            file_path = None
+            if url.startswith('data:image/'):
+                import tempfile
+                header, b64_data = url.split(',', 1)
+                img_bytes = base64.b64decode(b64_data)
+                tmp = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+                tmp.write(img_bytes)
+                tmp.close()
+                file_path = tmp.name
+            elif not url.startswith('http'):
+                from open_webui.models.files import Files
+                file_obj = await Files.get_file_by_id(url)
+                if file_obj:
+                    from open_webui.storage.provider import Storage
+                    file_path = await asyncio.to_thread(Storage.get_file, file_obj.path)
+
+            if file_path:
+                from open_webui.utils.ocr import extract_text_from_image
+                ocr_text = await asyncio.to_thread(extract_text_from_image, str(file_path))
+                if ocr_text and ocr_text.strip():
+                    name = f.get('name', '图片')
+                    results.append(
+                        f'[用户上传的截图 "{name}" 的 OCR 识别内容]\n{ocr_text.strip()}'
+                    )
+                else:
+                    results.append('[用户上传了一张截图，但 OCR 未能识别出文字内容]')
+            else:
+                results.append('[用户上传了一张截图，但无法获取图片文件]')
+        except Exception as e:
+            log.warning('OCR extraction failed for image: %s', e)
+            results.append(f'[用户上传了一张截图，OCR 提取失败: {e}]')
+    return results
+
+
+async def convert_url_images_to_base64(form_data, model: dict | None = None):
+    model_has_vision = True
+    if model:
+        model_has_vision = (
+            model.get('info', {}).get('meta', {}).get('capabilities') or {}
+        ).get('vision', True)
+
     messages = form_data.get('messages', [])
 
     for message in messages:
@@ -2141,6 +2192,15 @@ async def convert_url_images_to_base64(form_data):
                 continue
 
             image_url = item.get('image_url', {}).get('url', '')
+
+            if not model_has_vision:
+                ocr_parts = await _extract_ocr_from_image_files(
+                    [{'url': image_url}]
+                )
+                if ocr_parts:
+                    new_content.append({'type': 'text', 'text': ocr_parts[0]})
+                continue
+
             if image_url.startswith('data:image/'):
                 new_content.append(item)
                 continue
@@ -2327,7 +2387,14 @@ async def process_chat_payload(request, form_data, user, metadata, model):
             system_message = get_system_message(form_data.get('messages', []))
             form_data['messages'] = [system_message, *db_messages] if system_message else db_messages
 
-            # Inject image files into content as image_url parts (mirrors frontend logic)
+            # Inject image files into content.
+            # Always extract OCR text as supplementary context so non-vision models
+            # (or models with weak vision) can still understand image content.
+            # Vision-capable models also receive the image_url for direct viewing.
+            model_has_vision = (
+                model.get('info', {}).get('meta', {}).get('capabilities') or {}
+            ).get('vision', True)
+
             for message in form_data['messages']:
                 image_files = [
                     f
@@ -2337,17 +2404,25 @@ async def process_chat_payload(request, form_data, user, metadata, model):
                 if message.get('role') == 'user' and image_files:
                     text_content = message.get('content', '')
                     if isinstance(text_content, str):
-                        message['content'] = [
-                            {'type': 'text', 'text': text_content},
-                            *[
+                        ocr_parts = await _extract_ocr_from_image_files(image_files)
+                        ocr_text = '\n\n'.join(ocr_parts) if ocr_parts else ''
+
+                        if model_has_vision:
+                            parts = [{'type': 'text', 'text': text_content}]
+                            if ocr_text:
+                                parts.append({'type': 'text', 'text': ocr_text})
+                            parts.extend(
                                 {
                                     'type': 'image_url',
                                     'image_url': {'url': f['url']},
                                 }
                                 for f in image_files
                                 if f.get('url')
-                            ],
-                        ]
+                            )
+                            message['content'] = parts
+                        else:
+                            if ocr_text:
+                                message['content'] = text_content + '\n\n' + ocr_text
                 # Strip files field — it's been incorporated into content
                 message.pop('files', None)
 
@@ -2369,7 +2444,7 @@ async def process_chat_payload(request, form_data, user, metadata, model):
         except Exception:
             pass
 
-    form_data = await convert_url_images_to_base64(form_data)
+    form_data = await convert_url_images_to_base64(form_data, model=model)
 
     event_emitter = await get_event_emitter(metadata)
     event_caller = await get_event_call(metadata)
