@@ -20,9 +20,11 @@
 		updateValue();
 	}
 
-	const updateValue = () => {
+	const updateValue = async () => {
 		if (_value !== value) {
 			_value = value;
+			await tick();
+			autoResize();
 		}
 	};
 
@@ -31,6 +33,15 @@
 
 	export const focus = () => {
 		textareaEl?.focus();
+	};
+
+	const autoResize = () => {
+		if (textareaEl) {
+			textareaEl.style.height = 'auto';
+			const maxH = window.innerHeight * 0.8;
+			const targetH = Math.min(textareaEl.scrollHeight, maxH);
+			textareaEl.style.height = targetH + 'px';
+		}
 	};
 
 	export const formatPythonCodeHandler = async () => {
@@ -61,12 +72,14 @@
 		return false;
 	};
 
-	onMount(() => {
+	onMount(async () => {
 		if (value === '') {
 			value = boilerplate;
 		}
 
 		_value = value;
+		await tick();
+		autoResize();
 
 		const keydownHandler = async (e: KeyboardEvent) => {
 			if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -94,11 +107,13 @@
 <textarea
 	bind:this={textareaEl}
 	id="code-textarea-{id}"
-	class="h-full w-full text-sm font-mono bg-transparent resize-none outline-none p-2 dark:bg-black dark:text-white"
+	class="w-full text-sm font-mono bg-transparent resize-none outline-none p-2 dark:bg-black dark:text-white"
+	style="min-height: 3rem; max-height: 80vh; overflow-y: auto;"
 	bind:value={_value}
 	on:input={() => {
 		value = _value;
 		onChange(_value);
+		autoResize();
 	}}
 	placeholder={$i18n.t('Enter your code here...')}
 	spellcheck="false"

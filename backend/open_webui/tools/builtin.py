@@ -1381,14 +1381,22 @@ def _grep_in_extracted_dir(extracted_dir: str, regex, filename_filter: str = '',
                     line = line.rstrip('\n')
                     if not regex.search(line):
                         continue
+                    line_no = idx + 1
                     before_start = max(0, idx - context)
                     after_end = min(len(lines), idx + context + 1)
                     matches.append({
                         'file': rel_path,
-                        'line_number': idx + 1,
+                        'line_number': line_no,
+                        'location': f'{rel_path}:{line_no}',
                         'content': _truncate_line(line),
-                        'context_before': [_truncate_line(l.rstrip('\n')) for l in lines[before_start:idx]],
-                        'context_after': [_truncate_line(l.rstrip('\n')) for l in lines[idx + 1:after_end]],
+                        'context_before': [
+                            {'line_number': before_start + i + 1, 'content': _truncate_line(l.rstrip('\n'))}
+                            for i, l in enumerate(lines[before_start:idx])
+                        ],
+                        'context_after': [
+                            {'line_number': idx + 2 + i, 'content': _truncate_line(l.rstrip('\n'))}
+                            for i, l in enumerate(lines[idx + 1:after_end])
+                        ],
                     })
                     if len(matches) >= max_matches:
                         return matches
@@ -1498,6 +1506,7 @@ async def grep_log(
                 )
                 for m in disk_matches:
                     m['file'] = f'{f.filename}/{m["file"]}'
+                    m['location'] = f'{m["file"]}:{m["line_number"]}'
                 matches.extend(disk_matches)
             else:
                 if file and file.lower() not in f.filename.lower():
@@ -1513,9 +1522,16 @@ async def grep_log(
                         {
                             'file': f.filename,
                             'line_number': line_no,
+                            'location': f'{f.filename}:{line_no}',
                             'content': _truncate_line(line),
-                            'context_before': [_truncate_line(l) for l in lines[before_start:idx]],
-                            'context_after': [_truncate_line(l) for l in lines[idx + 1 : after_end]],
+                            'context_before': [
+                                {'line_number': before_start + i + 1, 'content': _truncate_line(l)}
+                                for i, l in enumerate(lines[before_start:idx])
+                            ],
+                            'context_after': [
+                                {'line_number': idx + 2 + i, 'content': _truncate_line(l)}
+                                for i, l in enumerate(lines[idx + 1 : after_end])
+                            ],
                         }
                     )
                     if len(matches) >= MAX_GREP_MATCHES:
@@ -1614,13 +1630,20 @@ async def get_context(
         start = max(0, idx - before)
         end = min(total_lines, idx + after + 1)
         numbered_lines = [
-            {'line_number': i + 1, 'content': target_lines[i], 'is_target': i == idx} for i in range(start, end)
+            {
+                'line_number': i + 1,
+                'location': f'{actual_file_name}:{i + 1}',
+                'content': target_lines[i],
+                'is_target': i == idx,
+            }
+            for i in range(start, end)
         ]
 
         return _json_response(
             {
                 'file': actual_file_name,
                 'target_line': line,
+                'target_location': f'{actual_file_name}:{line}',
                 'total_lines': total_lines,
                 'lines': numbered_lines,
             }
@@ -1670,9 +1693,12 @@ async def time_window(
                             continue
                         if not _line_matches_level(line, level):
                             continue
+                        line_no = idx + 1
+                        file_label = f'{f.filename}/{rel_path}'
                         entries.append({
-                            'file': f'{f.filename}/{rel_path}',
-                            'line_number': idx + 1,
+                            'file': file_label,
+                            'line_number': line_no,
+                            'location': f'{file_label}:{line_no}',
                             'content': line,
                         })
                         if len(entries) >= MAX_GREP_MATCHES:
@@ -1688,9 +1714,11 @@ async def time_window(
                         continue
                     if not _line_matches_level(line_text, level):
                         continue
+                    line_no = idx + 1
                     entries.append({
                         'file': f.filename,
-                        'line_number': idx + 1,
+                        'line_number': line_no,
+                        'location': f'{f.filename}:{line_no}',
                         'content': line_text,
                     })
                     if len(entries) >= MAX_GREP_MATCHES:
