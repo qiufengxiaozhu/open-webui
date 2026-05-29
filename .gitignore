@@ -14,6 +14,7 @@ vite.config.ts.timestamp-*
 # RCA platform — runtime & build artifacts
 backend/open_webui/frontend/
 backend/data/
+data/
 .git-recovered/
 
 # Byte-compiled / optimized / DLL files

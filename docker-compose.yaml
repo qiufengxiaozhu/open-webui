@@ -1,21 +1,74 @@
+# ============================================================
+#  RCA Open WebUI - Docker Compose
+#  对外端口: 9000
+#
+#  首次使用（或 requirements 变更时）:
+#    docker build -f Dockerfile.base -t rca-base:latest .
+#
+#  日常使用:
+#    docker compose up -d --build      # 构建并启动
+#    docker compose up -d              # 仅启动
+#    docker compose logs -f            # 查看日志
+#    docker compose down               # 停止
+# ============================================================
+
 services:
   open-webui:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: open-webui
-    volumes:
-      - open-webui:/app/backend/data
-    ports:
-      - ${OPEN_WEBUI_PORT-3000}:8080
-    environment:
-      - 'OPENAI_API_BASE_URLS=${OPENAI_API_BASE_URLS-}'
-      - 'OPENAI_API_KEYS=${OPENAI_API_KEYS-}'
-      - 'WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY-}'
-      - 'VECTOR_DB='
-    extra_hosts:
-      - host.docker.internal:host-gateway
+      args:
+        RCA_BASE_IMAGE: rca-base:latest
+        BUILD_HASH: ${BUILD_HASH:-dev-build}
+    image: rca-open-webui:latest
+    container_name: rca-open-webui
     restart: unless-stopped
 
-volumes:
-  open-webui: {}
+    ports:
+      - "${OPEN_WEBUI_PORT:-9000}:9000"
+
+    volumes:
+      # ---- 数据持久化（必须挂载） ----
+      # 包含: SQLite 数据库(webui.db)、用户上传文件(uploads/)、缓存(cache/)
+      # 存储在项目同级 ./data 目录，跟随 docker-compose.yaml 走
+      - ./data:/app/backend/data
+
+      # ---- 技能文档（建议挂载，支持热更新） ----
+      # 可在宿主机修改 .md 技能文档后直接生效，无需重新构建镜像
+      - ./docs/skills:/app/docs/skills:ro
+
+    environment:
+      # ---- 服务端口 ----
+      - PORT=9000
+
+      # ---- 大模型配置 ----
+      # 格式: 分号分隔多个 API 地址/密钥
+      - OPENAI_API_BASE_URLS=${OPENAI_API_BASE_URLS:-}
+      - OPENAI_API_KEYS=${OPENAI_API_KEYS:-}
+
+      # ---- 安全密钥（生产环境务必修改） ----
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:-please-change-me-in-production}
+
+      # ---- RCA Skills Gate ----
+      - ENABLE_SKILLS_GATE=${ENABLE_SKILLS_GATE:-true}
+      - SKILLS_DIR=/app/docs/skills
+
+      # ---- 沙箱脚本（可选） ----
+      - ENABLE_SANDBOX_SHELL=${ENABLE_SANDBOX_SHELL:-false}
+      - SANDBOX_TIMEOUT=${SANDBOX_TIMEOUT:-30}
+
+      # ---- 隐私 ----
+      - SCARF_NO_ANALYTICS=true
+      - DO_NOT_TRACK=true
+      - ANONYMIZED_TELEMETRY=false
+
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+    healthcheck:
+      test: ["CMD", "curl", "--silent", "--fail", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+

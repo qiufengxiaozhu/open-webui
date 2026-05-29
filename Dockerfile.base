@@ -1,0 +1,36 @@
+# ============================================================
+#  rca-base — 基础镜像
+#  包含: 系统依赖 + Python 依赖 + Node.js（用于前端构建）
+#  构建命令:
+#    docker build -f Dockerfile.base -t rca-base:latest .
+#  仅在 requirements-rca.txt 或系统依赖变更时需要重新构建
+# ============================================================
+FROM python:3.11-slim-bookworm
+
+ENV PYTHONUNBUFFERED=1
+ENV HOME=/root
+
+WORKDIR /app/backend
+
+# ---- 系统依赖 ----
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    git build-essential gcc netcat-openbsd curl jq \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---- Node.js（前端构建用） ----
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# ---- Python 依赖 ----
+COPY ./backend/requirements-rca.txt ./requirements.txt
+
+ENV UV_LINK_MODE=copy
+
+RUN pip3 install --no-cache-dir uv && \
+    uv pip install --system -r requirements.txt --no-cache-dir
+
+# ---- 预创建数据目录 ----
+RUN mkdir -p /app/backend/data /app/build $HOME/.cache

@@ -1,20 +1,54 @@
-.github
-.DS_Store
-docs
-kubernetes
-node_modules
-/.svelte-kit
-/package
+# ===== 运行时数据（绝对不要打进镜像） =====
+backend/data/
+backend/open_webui/frontend/
+
+# ===== 开发依赖 & 构建缓存 =====
+node_modules/
+.venv/
+.svelte-kit/
+.cache/
+.parcel-cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# ===== 版本控制 & IDE =====
+.git/
+.gitignore
+.idea/
+.vscode/
+.cursor/
+*.swp
+*.swo
+
+# ===== 环境文件（敏感信息） =====
 .env
 .env.*
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
-__pycache__
-.idea
-venv
-_old
-uploads
-.ipynb_checkpoints
-**/*.db
-_test
-backend/data/*
+!.env.example
+
+# ===== 文档 & 测试（非运行必须） =====
+*.md
+!docs/skills/*.md
+LICENSE
+CHANGELOG.md
+cypress/
+test/
+tests/
+*.test.*
+*.spec.*
+htmlcov/
+.pytest_cache/
+coverage/
+
+# ===== Docker 相关（避免递归） =====
+docker-compose*.yml
+docker-compose*.yaml
+
+# ===== 日志 & 临时文件 =====
+*.log
+*.pid
+*.seed
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
