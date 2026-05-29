@@ -1,5 +1,5 @@
 ---
-name: luoshu-opendoc-error-log
+name: 文档打开故障分析
 description: 分析洛书服务（luoshu-server）文档打开（预览+编辑）全链路错误日志。覆盖 HTTP 入口（认证/License/权限/格式校验）→ WebSocket 连接（握手/限流/心跳）→ 文档转换（源文件下载/MIME校验/CL转版/预转版/draft存储）→ OT 协同编辑（消息冲突/seq gap/重连）→ 保存发布（applyMsg/导出/回写/版本冲突）→ 资源加载（图片/字体/WMF懒转换）全阶段。当用户提到文档打不开、预览白屏、编辑报错、转换失败、协同异常、保存失败、导出错误、WebSocket断线、OT冲突、draft加载失败、资源404、IMPORTING超时时触发。
 disable-model-invocation: true
 ---

@@ -1,5 +1,5 @@
 ---
-name: lse-openapi-error-log
+name: openApi故障分析
 description: 分析 luoshu-server OpenAPI 错误日志，覆盖全局中间件（鉴权/限流/License）→ 参数校验 → 任务入队（队列限流/锁）→ 源文件下载 → 文件校验（MIME/大小/加密/内容限制）→ 转换执行（Word/Sheet/PPT/PDF/图片/OFD/水印，含6+转换引擎）→ 回调通知 → 下载全链路。当用户提到 OpenAPI 报错、转换失败、word转pdf错误、任务超时、ResCode、ConvertErrCode、回调失败、下载失败、队列拥塞、ServerBusy、MIME不匹配、加密文档、水印失败、Java转换错误时触发。
 disable-model-invocation: true
 ---

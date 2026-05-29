@@ -2375,7 +2375,7 @@ async def process_chat_payload(request, form_data, user, metadata, model):
     _chat_id = metadata.get('chat_id', '?')
     _model_id = form_data.get('model', '?')
     _msg_count = len(form_data.get('messages', []))
-    _file_count = len((metadata or {}).get('files', []))
+    _file_count = len((metadata or {}).get('files') or [])
     log.info(f'[RCA:chat] 新请求 chat_id={_chat_id} model={_model_id} msgs={_msg_count} files={_file_count}')
 
     # Guided regeneration: extract before it reaches the LLM provider
