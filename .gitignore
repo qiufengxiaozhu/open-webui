@@ -17,6 +17,7 @@ vite.config.ts.timestamp-*
 backend/open_webui/frontend/
 backend/data/
 data/
+logs/
 .git-recovered/
 
 # Byte-compiled / optimized / DLL files

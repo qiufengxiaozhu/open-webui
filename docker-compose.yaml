@@ -39,6 +39,10 @@ services:
       # 包含: SQLite 数据库(webui.db)、用户上传文件(uploads/)、缓存(cache/)
       - ./data:/app/backend/data
 
+      # ---- 应用日志（必须挂载） ----
+      # 每日午夜轮转，超过 1 个月的旧日志自动按月打成 .tar.gz
+      - ./logs:/app/logs
+
       # ---- 技能文档（建议挂载，支持热更新） ----
       # 可在宿主机修改 .md 技能文档后直接生效，无需重新构建镜像
       - ./docs/skills:/app/docs/skills:ro

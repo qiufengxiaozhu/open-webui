@@ -316,6 +316,15 @@ if FROM_INIT_PY:
     FRONTEND_BUILD_DIR = Path(os.getenv('FRONTEND_BUILD_DIR', OPEN_WEBUI_DIR / 'frontend')).resolve()
 
 ####################################
+# Application Log File
+####################################
+
+ENABLE_APP_LOG_FILE = os.environ.get('ENABLE_APP_LOG_FILE', 'true').lower() == 'true'
+APP_LOG_DIR = Path(os.getenv('APP_LOG_DIR', BASE_DIR / 'logs')).resolve()
+APP_LOG_RETENTION = os.environ.get('APP_LOG_RETENTION', '90 days')
+APP_LOG_ARCHIVE_MONTHS = int(os.environ.get('APP_LOG_ARCHIVE_MONTHS', '1'))
+
+####################################
 # Skills Gate
 ####################################
 

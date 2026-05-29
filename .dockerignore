@@ -1,6 +1,8 @@
 # ===== 运行时数据（绝对不要打进镜像） =====
 backend/data/
 backend/open_webui/frontend/
+data/
+logs/
 
 # ===== 开发依赖 & 构建缓存 =====
 node_modules/
