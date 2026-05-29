@@ -156,6 +156,14 @@ def extract_archive_to_dir(archive_path: str, target_dir: str, original_filename
     except Exception as e:
         log.exception('Failed to extract archive to dir: %s', e)
 
+    if extracted:
+        total_size = sum(
+            os.path.getsize(os.path.join(target_dir, f))
+            for f in extracted
+            if os.path.isfile(os.path.join(target_dir, f))
+        )
+        log.info(f'[RCA:archive] 解压完成 files={len(extracted)} total_size={total_size}B dir={target_dir}')
+
     return extracted
 
 

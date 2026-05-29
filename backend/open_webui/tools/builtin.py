@@ -1588,6 +1588,7 @@ async def get_context(
     after = max(0, after)
 
     try:
+        log.info(f'[RCA:get_context] file={file} line={line} before={before} after={after}')
         all_files = await _get_chat_files(__metadata__, __user__)
         if not all_files:
             return json.dumps({'error': f'File not found: {file}'})
@@ -1639,6 +1640,7 @@ async def get_context(
             for i in range(start, end)
         ]
 
+        log.info(f'[RCA:get_context] 返回 {len(numbered_lines)} 行 file={actual_file_name}')
         return _json_response(
             {
                 'file': actual_file_name,
@@ -1676,6 +1678,7 @@ async def time_window(
         return json.dumps({'error': 'User context not available'})
 
     try:
+        log.info(f'[RCA:time_window] start={start} end={end} level={level} file={file}')
         all_files = await _get_chat_files(__metadata__, __user__)
         if not all_files:
             return json.dumps({'error': 'No accessible files found in current chat', 'entries': []})
@@ -1726,6 +1729,7 @@ async def time_window(
             if len(entries) >= MAX_GREP_MATCHES:
                 break
 
+        log.info(f'[RCA:time_window] 返回 {len(entries)} 条日志')
         return _json_response(
             {
                 'start': start,
@@ -1767,6 +1771,7 @@ async def count_errors(
     top_n = max(1, top_n)
 
     try:
+        log.info(f'[RCA:count_errors] file={file} top_n={top_n}')
         from open_webui.utils.log_analyzer import _is_error_line, _normalize_error_pattern
 
         all_files = await _get_chat_files(__metadata__, __user__)
@@ -1807,6 +1812,7 @@ async def count_errors(
         patterns = sorted(pattern_stats.values(), key=lambda x: x['count'], reverse=True)[:top_n]
         total_errors = sum(item['count'] for item in pattern_stats.values())
 
+        log.info(f'[RCA:count_errors] 总错误={total_errors} 独立模式={len(pattern_stats)}')
         return _json_response(
             {
                 'total_errors': total_errors,
@@ -1834,6 +1840,7 @@ async def list_files(
         return json.dumps({'error': 'User context not available'})
 
     try:
+        log.info('[RCA:list_files] 列出当前会话文件')
         files = await _get_chat_files(__metadata__, __user__)
         result = []
         for f in files:
@@ -1854,6 +1861,7 @@ async def list_files(
                 entry['extracted_files'] = extracted_files
                 entry['extracted_on_disk'] = bool(extracted_dir)
             result.append(entry)
+        log.info(f'[RCA:list_files] 返回 {len(result)} 个文件')
         return _json_response({'files': result, 'total': len(result)})
     except Exception as e:
         log.exception(f'list_files error: {e}')
@@ -1903,6 +1911,8 @@ async def run_script(
 
     if not script or not script.strip():
         return json.dumps({'error': 'Script content is empty.'})
+
+    log.info(f'[RCA:run_script] lang={lang} script_len={len(script)}')
 
     if lang == 'bash':
         validation_error = _validate_bash_script(script, SANDBOX_ALLOWED_COMMANDS)
@@ -1971,6 +1981,7 @@ async def run_script(
                 'SCRIPTS_DIR': os.path.join(tmpdir, 'scripts'),
             }
 
+            _run_t0 = time.time()
             proc = await asyncio.to_thread(
                 subprocess.run,
                 cmd,
@@ -1980,9 +1991,11 @@ async def run_script(
                 cwd=tmpdir,
                 env=env,
             )
+            _run_ms = int((time.time() - _run_t0) * 1000)
 
             stdout = proc.stdout or ''
             stderr = proc.stderr or ''
+            log.info(f'[RCA:run_script] 执行完成 lang={lang} exit_code={proc.returncode} 耗时={_run_ms}ms stdout_len={len(stdout)} stderr_len={len(stderr)}')
 
             stdout_truncated = len(stdout.encode('utf-8')) > SANDBOX_MAX_OUTPUT
             stderr_truncated = len(stderr.encode('utf-8')) > SANDBOX_MAX_OUTPUT

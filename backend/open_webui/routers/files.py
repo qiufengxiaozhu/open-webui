@@ -184,6 +184,9 @@ async def process_uploaded_file(
                 from open_webui.utils.archive import extract_logs_from_archive, extract_archive_to_dir
                 from open_webui.config import UPLOAD_DIR
 
+                _file_size = (file_item.meta or {}).get('size', '?')
+                log.info(f'[RCA:file] 识别为压缩包 filename={file_item.filename} size={_file_size} content_type={content_type}')
+
                 file_path_processed = await asyncio.to_thread(Storage.get_file, file_path)
 
                 # 将压缩包内容解压到磁盘，供 RCA 工具直接访问完整原始日志
@@ -191,6 +194,7 @@ async def process_uploaded_file(
                 extracted_files = await asyncio.to_thread(
                     extract_archive_to_dir, file_path_processed, extracted_dir, file_item.filename,
                 )
+                log.info(f'[RCA:file] 解压完成 files={len(extracted_files) if extracted_files else 0} dir={extracted_dir}')
 
                 archive_content = await asyncio.to_thread(
                     extract_logs_from_archive, file_path_processed, file_item.filename,
@@ -875,6 +879,7 @@ async def delete_file_by_id(id: str, user=Depends(get_verified_user), db: AsyncS
                 extracted_dir = (file.data or {}).get('extracted_dir') if file.data else None
                 if extracted_dir and os.path.isdir(extracted_dir):
                     import shutil
+                    log.info(f'[RCA:file] 清理解压目录 dir={extracted_dir}')
                     await asyncio.to_thread(shutil.rmtree, extracted_dir, True)
                 if ASYNC_VECTOR_DB_CLIENT:
                     await ASYNC_VECTOR_DB_CLIENT.delete(collection_name=f'file-{id}')

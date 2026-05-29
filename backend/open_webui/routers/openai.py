@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import re
+import time
 from typing import Optional
 from urllib.parse import quote, urlparse
 
@@ -1232,11 +1233,17 @@ async def generate_chat_completion(
                     part.get('text', '') for part in message['content'] if part.get('type') in ('input_text', 'text')
                 )
 
+    _is_stream = form_data.get('stream', False)
+    _msg_count = len(form_data.get('messages', []))
+    _masked_url = re.sub(r'(https?://[^/]+).*', r'\1/...', url)
+    log.info(f'[RCA:llm] 请求发起 model={form_data.get("model","?")} base_url={_masked_url} stream={_is_stream} msgs={_msg_count}')
+
     payload = json.dumps(payload)
 
     r = None
     streaming = False
     response = None
+    _llm_t0 = time.time()
 
     try:
         session = await get_session()
@@ -1250,6 +1257,8 @@ async def generate_chat_completion(
             ssl=AIOHTTP_CLIENT_SESSION_SSL,
             timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT),
         )
+
+        log.info(f'[RCA:llm] 响应收到 status={r.status} content_type={r.headers.get("Content-Type","?")} 耗时={int((time.time() - _llm_t0) * 1000)}ms')
 
         # Check if response is SSE
         if 'text/event-stream' in r.headers.get('Content-Type', ''):

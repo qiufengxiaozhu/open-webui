@@ -1308,6 +1308,7 @@ async def chat_completion_tools_handler(
     tools_function_calling_prompt = tools_function_calling_generation_template(template, tools_specs)
     payload = get_tools_function_calling_payload(body['messages'], task_model_id, tools_function_calling_prompt)
 
+    log.info(f'[RCA:tools] 非native工具决策 task_model={task_model_id} tools={len(specs)}')
     try:
         response = await generate_chat_completion(request, form_data=payload, user=user)
         log.debug(f'{response=}')
@@ -1331,6 +1332,7 @@ async def chat_completion_tools_handler(
 
                 tool_function_name = tool_call.get('name', None)
                 if tool_function_name not in tools:
+                    log.warning(f'[RCA:tools] 未知工具名: {tool_function_name}')
                     return body, {}
 
                 tool_function_params = tool_call.get('parameters', {})
@@ -1348,6 +1350,8 @@ async def chat_completion_tools_handler(
                     allowed_params = spec.get('parameters', {}).get('properties', {}).keys()
                     tool_function_params = {k: v for k, v in tool_function_params.items() if k in allowed_params}
 
+                    _tool_t0 = time.time()
+                    log.info(f'[RCA:tools] 执行 {tool_function_name} params={list(tool_function_params.keys())}')
                     if tool.get('direct', False):
                         tool_result = await event_caller(
                             {
@@ -1365,7 +1369,11 @@ async def chat_completion_tools_handler(
                         tool_function = tool['callable']
                         tool_result = await tool_function(**tool_function_params)
 
+                    _tool_ms = int((time.time() - _tool_t0) * 1000)
+                    _result_size = len(str(tool_result)) if tool_result else 0
+                    log.info(f'[RCA:tools] 完成 {tool_function_name} 耗时={_tool_ms}ms 结果={_result_size}B')
                 except Exception as e:
+                    log.warning(f'[RCA:tools] 执行异常 {tool_function_name}: {e}')
                     tool_result = str(e)
 
                 tool_result, tool_result_files, tool_result_embeds = await process_tool_result(
@@ -2363,6 +2371,13 @@ async def process_chat_payload(request, form_data, user, metadata, model):
     form_data = apply_params_to_form_data(form_data, model)
     log.debug(f'form_data: {form_data}')
 
+    _chat_start = time.time()
+    _chat_id = metadata.get('chat_id', '?')
+    _model_id = form_data.get('model', '?')
+    _msg_count = len(form_data.get('messages', []))
+    _file_count = len((metadata or {}).get('files', []))
+    log.info(f'[RCA:chat] 新请求 chat_id={_chat_id} model={_model_id} msgs={_msg_count} files={_file_count}')
+
     # Guided regeneration: extract before it reaches the LLM provider
     regeneration_prompt = form_data.pop('regeneration_prompt', None)
 
@@ -2568,6 +2583,7 @@ async def process_chat_payload(request, form_data, user, metadata, model):
                 system_prompt,
                 form_data['messages'],
             )
+            log.info(f'[RCA:chat] Skills Gate 注入 {len(gate.skills)} 个技能')
 
     try:
         filter_ids = await get_sorted_filter_ids(request, model, metadata.get('filter_ids', []))
@@ -2958,6 +2974,8 @@ async def process_chat_payload(request, form_data, user, metadata, model):
             # Always store resolved tools in metadata so downstream consumers
             # (e.g. pipe functions) can access all tools including MCP and builtins.
             metadata['tools'] = tools_dict
+            _fc_mode = metadata.get('params', {}).get('function_calling', 'non-native')
+            log.info(f'[RCA:chat] 工具注入: {", ".join(tools_dict.keys())} function_calling={_fc_mode}')
 
             if metadata.get('params', {}).get('function_calling') == 'native':
                 # If the function calling is native, then call the tools function calling handler
@@ -3029,6 +3047,7 @@ async def process_chat_payload(request, form_data, user, metadata, model):
     # to prevent template parsing errors with strict chat templates (e.g. Qwen)
     form_data['messages'] = merge_system_messages(form_data.get('messages', []))
 
+    log.info(f'[RCA:chat] payload 准备完成 耗时={int((time.time() - _chat_start) * 1000)}ms')
     return form_data, metadata, events
 
 
@@ -3492,6 +3511,7 @@ async def outlet_filter_handler(ctx):
 
 
 async def non_streaming_chat_response_handler(response, ctx):
+    _resp_t0 = time.time()
     request = ctx['request']
 
     user = ctx['user']
@@ -3503,6 +3523,10 @@ async def non_streaming_chat_response_handler(response, ctx):
     response, response_data = get_response_data(response)
     if response_data is None:
         return response
+
+    _ns_model = metadata.get('model_id', '?')
+    _ns_content_len = len(str(response_data.get('choices', [{}])[0].get('message', {}).get('content', ''))) if response_data.get('choices') else 0
+    log.info(f'[RCA:chat] 非流式响应 model={_ns_model} content_len={_ns_content_len}')
 
     if event_emitter:
         try:
@@ -3635,10 +3659,12 @@ async def non_streaming_chat_response_handler(response, ctx):
     if isinstance(response, dict):
         response = merge_events_into_response(response_data, events)
 
+    log.info(f'[RCA:chat] 非流式完成 耗时={int((time.time() - _resp_t0) * 1000)}ms')
     return response
 
 
 async def streaming_chat_response_handler(response, ctx):
+    _stream_t0 = time.time()
     request = ctx['request']
 
     form_data = ctx['form_data']
@@ -3648,6 +3674,10 @@ async def streaming_chat_response_handler(response, ctx):
 
     metadata = ctx['metadata']
     events = ctx['events']
+
+    _stream_model = model.get('id', '?') if isinstance(model, dict) else '?'
+    _stream_chat_id = metadata.get('chat_id', '?')
+    log.info(f'[RCA:chat] 流式开始 model={_stream_model} chat_id={_stream_chat_id}')
 
     event_emitter = ctx['event_emitter']
     event_caller = ctx['event_caller']
@@ -4580,6 +4610,15 @@ async def streaming_chat_response_handler(response, ctx):
                         get_content_from_message(original_system_message) if original_system_message else None
                     )
 
+                if tool_calls:
+                    _tc_names = []
+                    for _tc_batch in tool_calls:
+                        for _tc in _tc_batch:
+                            _fn = _tc.get('function', {}).get('name', '') if isinstance(_tc, dict) else ''
+                            if _fn:
+                                _tc_names.append(_fn)
+                    log.info(f'[RCA:chat] 检测到 tool_calls: {", ".join(_tc_names) if _tc_names else "?"}')
+
                 while len(tool_calls) > 0 and tool_call_retries < CHAT_RESPONSE_MAX_TOOL_CALL_RETRIES:
                     tool_call_retries += 1
 
@@ -4658,6 +4697,8 @@ async def streaming_chat_response_handler(response, ctx):
                             tool_type = tool.get('type', '')
                             direct_tool = tool.get('direct', False)
 
+                            _st_t0 = time.time()
+                            log.info(f'[RCA:chat] 执行工具 {tool_function_name} params={list(tool_function_params.keys()) if isinstance(tool_function_params, dict) else "?"}')
                             try:
                                 allowed_params = spec.get('parameters', {}).get('properties', {}).keys()
 
@@ -4690,7 +4731,11 @@ async def streaming_chat_response_handler(response, ctx):
 
                                     tool_result = await tool_function(**tool_function_params)
 
+                                _st_ms = int((time.time() - _st_t0) * 1000)
+                                _st_size = len(str(tool_result)) if tool_result else 0
+                                log.info(f'[RCA:chat] 工具完成 {tool_function_name} 耗时={_st_ms}ms 结果={_st_size}B')
                             except Exception as e:
+                                log.warning(f'[RCA:chat] 工具异常 {tool_function_name}: {e}')
                                 tool_result = str(e)
 
                         tool_result, tool_result_files, tool_result_embeds = await process_tool_result(
@@ -5191,6 +5236,9 @@ async def streaming_chat_response_handler(response, ctx):
                         'data': data,
                     }
                 )
+
+                _stream_total_ms = int((time.time() - _stream_t0) * 1000)
+                log.info(f'[RCA:chat] 流式完成 耗时={_stream_total_ms}ms tool_rounds={tool_call_retries} usage={usage}')
 
                 await background_tasks_handler(ctx)
                 ctx['assistant_message'] = {
