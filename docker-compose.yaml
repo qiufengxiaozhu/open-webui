@@ -44,8 +44,9 @@ services:
       - ./logs:/app/logs
 
       # ---- 技能文档（建议挂载，支持热更新） ----
-      # 可在宿主机修改 .md 技能文档后直接生效，无需重新构建镜像
-      - ./docs/skills:/app/docs/skills:ro
+      # 宿主机目录为空时，容器启动会自动从镜像内置文档恢复
+      # 可在宿主机修改 .md 技能文档后重启容器生效
+      - ./docs/skills:/app/docs/skills
 
     extra_hosts:
       - host.docker.internal:host-gateway

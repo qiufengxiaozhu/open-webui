@@ -30,7 +30,7 @@ __pycache__/
 
 # ===== 文档 & 测试（非运行必须） =====
 *.md
-!docs/skills/*.md
+!docs/skills/**
 LICENSE
 CHANGELOG.md
 cypress/

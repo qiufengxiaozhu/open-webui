@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import tarfile
 import tempfile
 import zipfile
@@ -18,6 +19,15 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 LOG_EXTENSIONS = {'.log', '.txt', '.out', '.err', '.csv', '.conf', '.cfg', '.ini', '.xml', '.json', '.yaml', '.yml'}
+# 匹配轮转日志：.log1 .log2 .log10 .log.1 .log.2 .log.10 .out.1 .err.2 等
+_ROTATED_LOG_RE = re.compile(
+    r'\.(?:log|txt|out|err)\d+$'   # .log1 .log2 .log10 .out1 等
+    r'|'
+    r'\.(?:log|txt|out|err)\.\d+$' # .log.1 .log.2 .log.10 .out.1 等
+    r'|'
+    r'\.(?:log|txt|out|err)\.\d{4}-\d{2}-\d{2}$',  # .log.2026-05-29 等日期轮转
+    re.IGNORECASE,
+)
 MAX_TOTAL_SIZE = 100 * 1024 * 1024  # 100MB safety limit
 MAX_FILES = 500
 
@@ -43,9 +53,19 @@ def extract_logs_from_archive(archive_path: str, original_filename: str = '') ->
 
 
 def _is_log_file(name: str) -> bool:
-    """判断文件名是否为日志或文本配置文件。"""
-    ext = Path(name).suffix.lower()
-    return ext in LOG_EXTENSIONS
+    """判断文件名是否为日志或文本配置文件，包括轮转日志。
+
+    支持的轮转命名：
+      - 数字后缀：error.log1, error.log2, app.log.1, app.log.10
+      - 日期后缀：app.log.2026-05-29
+    """
+    name_lower = name.lower()
+    ext = Path(name_lower).suffix
+    if ext in LOG_EXTENSIONS:
+        return True
+    if _ROTATED_LOG_RE.search(name_lower):
+        return True
+    return False
 
 
 def _extract_from_zip(archive_path: str) -> str:

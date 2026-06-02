@@ -45,8 +45,9 @@ WORKDIR /app/backend
 COPY --from=frontend-build /app/build /app/build
 COPY --from=frontend-build /app/package.json /app/package.json
 
-# 拷贝 Skills Gate 技能文档
+# 拷贝 Skills Gate 技能文档（同时备份到 .default，防止 bind mount 覆盖后丢失）
 COPY ./docs/skills/ /app/docs/skills/
+COPY ./docs/skills/ /app/docs/skills.default/
 
 # 拷贝后端代码
 COPY ./backend .

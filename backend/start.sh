@@ -3,6 +3,14 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cd "$SCRIPT_DIR" || exit
 
+# 如果 skills 目录为空（bind mount 覆盖了镜像内置文件），从备份恢复
+SKILLS_DIR="/app/docs/skills"
+SKILLS_DEFAULT="/app/docs/skills.default"
+if [ -d "$SKILLS_DEFAULT" ] && [ -z "$(ls -A "$SKILLS_DIR" 2>/dev/null)" ]; then
+    echo "Skills directory is empty, restoring from image defaults..."
+    cp -r "$SKILLS_DEFAULT"/* "$SKILLS_DIR"/
+fi
+
 # Add conditional Playwright browser installation
 if [[ "${WEB_LOADER_ENGINE,,}" == "playwright" ]]; then
     if [[ -z "${PLAYWRIGHT_WS_URL}" ]]; then
