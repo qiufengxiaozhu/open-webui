@@ -33,8 +33,9 @@
 ## 文件处理说明
 - 用户上传的压缩包(.zip/.tar.gz等)会自动解压到磁盘
 - 支持轮转日志文件：.log1 .log2 .log.1 .log.10 .log.2026-05-29 .out1 .err2 等均会被解压和检索
+- **Java 日志文件**：Java 层日志文件名格式为 `java-systemOut.N.log`（如 `java-systemOut.0.log`、`java-systemOut.1.log`），包含 Aspose、CLConvertor 等 Java 引擎的异常堆栈，是诊断转换类错误的关键日志源
 - grep_log 等工具会直接在解压后的**完整原始日志（含所有轮转文件）**中搜索，不是裁剪版
-- **重要**：搜索 taskId 时如果当前日志文件没有结果，务必检查轮转日志（如 combined.log1, error.log.1 等）
+- **重要**：搜索 taskId 时如果当前日志文件没有结果，务必检查轮转日志（如 combined.log1, error.log.1, java-systemOut.1.log 等）
 - run_script 沙箱中可通过环境变量 $LOG_DIR 访问解压后的日志文件目录
 
 ## 分析脚本（优先使用）
@@ -104,8 +105,25 @@ python3 $SCRIPTS_DIR/analyze_task_failure.py --logDir $LOG_DIR --docId <docId>
 5. 需要关联 Java 日志时，用 time_window 按时间范围筛选，交叉验证 pid 和时间戳
 6. 必要时用 get_context 查看更多上下文
 7. 可调用 run_script 执行分析脚本做深入分析（利用 $LOG_DIR 环境变量）
-8. 充分检索后，对照 `references/opendoc-error-scenarios.md` 或 `references/error-codes.md` 中的场景描述，匹配最符合的报错场景，按场景中的诊断要点和引导用户验证的描述输出结论
-9. 基于真实日志证据输出结构化诊断报告，确保时间线连贯、证据可追溯
+8. **【关键】先判断任务是否真正失败**（见下方"结论判定规则"），再决定是否出具故障报告
+9. 充分检索后，对照 `references/opendoc-error-scenarios.md` 或 `references/error-codes.md` 中的场景描述，匹配最符合的报错场景，按场景中的诊断要点和引导用户验证的描述输出结论
+10. 基于真实日志证据输出结构化诊断报告，确保时间线连贯、证据可追溯
+
+### 结论判定规则（必须遵守，防止误判）
+**禁止在日志证据表明任务成功时，强行给出"故障"或"失败"结论。**
+
+判断标准：
+1. 检查日志中该 taskId 的**最终状态**：
+   - `processResult: true` / `TaskSuccessNotify` / `isSucceed: true` / `code: 200` 等 → 任务**执行成功**
+   - `error=1214` / `convert import error` / `isSucceed: false` / `code: 非200` 等 → 任务**执行失败**
+2. 如果任务**执行成功**但用户反馈结果有问题（如文件太小、内容不对）：
+   - **不要**编造"转换失败"或"文件损坏"的结论
+   - 如实报告："任务在服务端执行成功（processResult=true），但产出结果可能不符合预期"
+   - 建议用户验证产出文件，或检查源文件下载环节（如 driver content 接口返回的内容是否正确）
+3. 如果日志中**没有找到错误**：
+   - 明确回复："在日志中未找到该 taskId 的错误记录，任务链路显示正常完成"
+   - **不要**为了给出结论而猜测或编造不存在的错误
+4. 只有当日志中有**明确的错误证据**时，才输出故障诊断报告
 
 ## 检索与输出的关系
 - **检索阶段**：必须充分、完整地搜索所有相关日志文件（combined、error、java、轮转日志等），不要因为输出精简就减少检索量。多次调用 grep_log / time_window / get_context 搜集全面的证据链。
