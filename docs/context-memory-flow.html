@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Open WebUI 上下文记忆机制 — 前后端调用链路</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<style>
+:root {
+  --bg:#f8f9fa; --card:#fff; --border:#e2e8f0;
+  --tx:#1a202c; --tx2:#4a5568; --tx3:#718096;
+  --ac:#2563eb; --ac-l:#eff6ff;
+  --gn:#16a34a; --gn-l:#f0fdf4;
+  --or:#ea580c; --or-l:#fff7ed;
+  --rd:#dc2626; --rd-l:#fef2f2;
+  --pu:#7c3aed; --pu-l:#f5f3ff;
+  --tl:#0d9488; --tl-l:#f0fdfa;
+  --cb:#1e293b; --ct:#e2e8f0;
+  --sh:0 1px 3px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--tx);font-size:15px;line-height:1.75}
+.c{max-width:1500px;margin:0 auto;padding:24px 32px 64px}
+/* Hero */
+.hero{background:linear-gradient(135deg,#2563eb 0%,#7c3aed 100%);color:#fff;border-radius:16px;padding:48px 40px;margin-bottom:32px;box-shadow:0 8px 32px rgba(37,99,235,.18)}
+.hero h1{font-size:28px;font-weight:700;margin-bottom:8px}
+.hero p{font-size:16px;opacity:.9}
+/* 章节卡片 */
+.s{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px;margin-bottom:24px;box-shadow:var(--sh)}
+.s h2{font-size:20px;font-weight:700;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid var(--ac)}
+.s h3{font-size:16px;font-weight:600;margin:20px 0 10px;padding-left:12px;border-left:3px solid var(--ac)}
+/* 表格 */
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0}
+th{background:#f1f5f9;font-weight:600;text-align:left;padding:10px 12px;border:1px solid var(--border)}
+td{padding:10px 12px;border:1px solid var(--border);vertical-align:top}
+tr:hover{background:#f8fafc}
+/* 代码块 */
+pre{background:var(--cb);color:var(--ct);padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:13px;font-family:"JetBrains Mono","Fira Code",monospace;margin:12px 0;position:relative;line-height:1.6}
+code{font-family:"JetBrains Mono","Fira Code",monospace;font-size:13px}
+p code, li code, td code{background:#f1f5f9;color:#d63384;padding:2px 6px;border-radius:4px;font-size:12.5px}
+/* Tag */
+.tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:500;margin:2px 4px 2px 0}
+.tag-blue{background:var(--ac-l);color:var(--ac)}
+.tag-green{background:var(--gn-l);color:var(--gn)}
+.tag-orange{background:var(--or-l);color:var(--or)}
+.tag-purple{background:var(--pu-l);color:var(--pu)}
+.tag-teal{background:var(--tl-l);color:var(--tl)}
+.tag-red{background:var(--rd-l);color:var(--rd)}
+/* Callout */
+.co{padding:14px 18px;border-radius:8px;margin:12px 0;border-left:4px solid;font-size:14px}
+.co-i{background:var(--ac-l);border-color:var(--ac);color:var(--ac)}
+.co-w{background:var(--or-l);border-color:var(--or);color:#92400e}
+.co-t{background:var(--gn-l);border-color:var(--gn);color:#166534}
+.co-d{background:var(--rd-l);border-color:var(--rd);color:#991b1b}
+.co strong{display:block;margin-bottom:4px}
+/* 文件引用 */
+.fr{background:#f1f5f9;padding:6px 12px;border-radius:6px;font-family:"JetBrains Mono",monospace;font-size:12.5px;color:var(--tx2);margin:4px 0;display:inline-block}
+.fr::before{content:"📄 "}
+/* Mermaid 容器 */
+.mw{background:#fff !important;padding:16px;border-radius:8px;margin:16px 0;border:1px solid var(--border);text-align:center;position:relative;overflow:hidden}
+.mw pre{background:#fff !important}
+.mw svg{background:#fff !important}
+.mw .node rect,.mw .node polygon,.mw .node circle{fill:#fff !important}
+.mw .cluster rect{fill:#f8fafc !important;stroke:var(--border) !important}
+.mw .nodeLabel,.mw .edgeLabel,.mw .label{color:#1a202c !important;fill:#1a202c !important}
+.mw .edgePath .path{stroke:#64748b !important}
+.mw .actor{fill:#dbeafe !important;stroke:#2563eb !important}
+.mw .messageLine0,.mw .messageLine1{stroke:#64748b !important}
+.mw .messageText,.mw text.actor-label{fill:#1a202c !important}
+.mw .mw-inner{overflow:auto;width:100%;max-height:600px}
+.mw .mw-toolbar{position:absolute;top:8px;right:8px;display:flex;gap:4px;opacity:0;transition:opacity .2s;z-index:10}
+.mw:hover .mw-toolbar{opacity:1}
+.mw-toolbar button{width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,.08);color:var(--tx3);padding:0}
+.mw-toolbar button:hover{background:var(--ac-l);color:var(--ac);border-color:var(--ac)}
+.mw-toolbar button svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mw-fullscreen{position:fixed !important;top:0;left:0;right:0;bottom:0;width:100% !important;height:100% !important;z-index:9999;margin:0 !important;padding:0 !important;border-radius:0 !important;border:none !important;overflow:hidden !important;display:block !important;background:#fff !important}
+.mw-fullscreen .mw-inner{width:100%;height:100%;overflow:auto !important;max-height:none !important;padding:60px 24px 24px;box-sizing:border-box}
+.mw-fullscreen .mw-toolbar{opacity:1;position:fixed;top:16px;right:16px;z-index:10000}
+/* 复制按钮 */
+.copy-btn{position:absolute;top:8px;right:8px;padding:4px 10px;font-size:12px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.1);color:#e2e8f0;cursor:pointer;opacity:0;transition:opacity .2s;z-index:5}
+pre:hover .copy-btn{opacity:1}
+.copy-btn:hover{background:rgba(255,255,255,.2)}
+.copy-btn.copied{background:var(--gn);color:#fff;border-color:var(--gn)}
+/* 侧边栏 */
+#sidebar{position:fixed;top:0;left:0;width:280px;height:100%;background:var(--card);border-right:1px solid var(--border);overflow-y:auto;padding:20px 16px;z-index:100;transition:transform .3s}
+#sidebar .toc-title{font-size:14px;font-weight:700;color:var(--ac);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+#sidebar a{display:block;padding:6px 10px;font-size:13px;color:var(--tx2);text-decoration:none;border-radius:6px;margin:2px 0;transition:all .15s}
+#sidebar a:hover,#sidebar a.active{background:var(--ac-l);color:var(--ac)}
+#sidebar .toc-h2{font-weight:600;position:relative;padding-right:20px}
+#sidebar .toc-h2::after{content:'▸';position:absolute;right:8px;top:50%;transform:translateY(-50%);transition:transform .2s;font-size:11px;color:var(--tx3)}
+#sidebar .toc-h2.expanded::after{transform:translateY(-50%) rotate(90deg)}
+#sidebar .toc-group{overflow:hidden;max-height:0;transition:max-height .3s ease}
+#sidebar .toc-group.open{max-height:500px}
+#sidebar .toc-sub{padding-left:20px;font-size:12.5px}
+body.sb-open .c{margin-left:296px}
+body.sb-closed #sidebar{transform:translateX(-100%)}
+body.sb-closed .c{margin-left:auto}
+#sb-float-btn{position:fixed;bottom:24px;left:24px;width:40px;height:40px;border-radius:50%;background:var(--ac);color:#fff;border:none;cursor:pointer;font-size:18px;z-index:101;box-shadow:0 2px 8px rgba(37,99,235,.3);display:flex;align-items:center;justify-content:center}
+/* 步骤流 */
+.step-flow{display:flex;flex-direction:column;gap:0;margin:16px 0}
+.step{padding:14px 18px;border-radius:8px;border:1px solid var(--border);background:var(--card)}
+.step.accent{border-color:var(--ac);background:var(--ac-l)}
+.step-num{display:inline-block;width:24px;height:24px;border-radius:50%;background:var(--ac);color:#fff;text-align:center;line-height:24px;font-size:12px;font-weight:700;margin-right:8px}
+.step-title{font-weight:600;font-size:14px}
+.step-desc{font-size:13px;color:var(--tx2);margin-top:4px}
+.step-arrow{text-align:center;color:var(--tx3);font-size:16px;padding:2px 0;letter-spacing:2px}
+.step-file{margin-top:4px}
+/* 两列布局 */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){body.sb-open .c{margin-left:auto}#sidebar{transform:translateX(-100%)}body.sb-open #sidebar{transform:translateX(0)}.two-col{grid-template-columns:1fr}}
+@media(max-width:700px){.c{padding:16px}.hero{padding:32px 24px}.s{padding:20px}}
+/* 底部 */
+.footer{text-align:center;color:var(--tx3);font-size:12px;padding:32px 0}
+</style>
+</head>
+<body class="sb-open">
+
+<!-- ===== 侧边栏开始 ===== -->
+<div id="sidebar">
+  <div class="toc-title">📑 目录</div>
+  <div id="toc-content"></div>
+</div>
+<button id="sb-float-btn" onclick="toggleSidebar()">☰</button>
+<!-- ===== 侧边栏结束 ===== -->
+
+<div class="c">
+
+<div class="hero">
+  <h1>Open WebUI 上下文记忆机制</h1>
+  <p>前后端完整调用链路 — 从用户发送消息到 LLM 接收完整上下文</p>
+</div>
+
+<!-- ===== 01. 总览 ===== -->
+<div class="s" id="s1">
+<h2>📌 01. 总览</h2>
+<p>在 Open WebUI 的同一个会话中，所有历史消息都会作为上下文发送给大模型。上下文的"真相来源"是<strong>后端数据库</strong>，而非前端请求体。</p>
+<p>以下是完整的数据流概览，覆盖前端消息收集、后端上下文组装、System Prompt 注入、工具调用循环等全流程。</p>
+
+<div class="mw">
+<pre class="mermaid">
+sequenceDiagram
+    participant U as 用户 (Browser)
+    participant FE as Chat.svelte<br/>前端
+    participant API as POST /api/chat/completions<br/>main.py
+    participant MW as process_chat_payload<br/>middleware.py
+    participant DB as SQLite / PostgreSQL<br/>chat_message 表
+    participant LLM as LLM Provider<br/>(GPT/Claude/Ollama)
+
+    U->>FE: 输入消息并发送
+    FE->>FE: submitPrompt()<br/>创建 userMessage
+    FE->>FE: createMessagesList()<br/>沿 parentId 链回溯
+    FE->>API: HTTP POST<br/>{system, user_message, chat_id, ...}
+
+    Note over API: 持久化会话：<br/>messages 仅含 system prompt<br/>临时会话：含完整历史
+
+    API->>DB: upsert user + assistant 占位消息
+    API->>MW: form_data + metadata
+
+    MW->>DB: load_messages_from_db()<br/>按 parentId 链重建历史
+    DB-->>MW: 完整消息链
+
+    MW->>MW: process_messages_with_output()<br/>将 output 还原为 tool_calls + tool
+
+    MW->>MW: 注入 System Prompt<br/>(settings → folder → SkillsGate<br/>→ Memory → RAG → model)
+
+    MW->>MW: merge_system_messages()<br/>合并为一条 system 消息
+
+    MW->>LLM: 最终 messages[]<br/>[system, user, assistant, tool, ...]
+    LLM-->>FE: SSE / Socket 流式响应
+
+    alt LLM 返回 tool_calls
+        MW->>MW: 执行工具函数
+        MW->>MW: 结果回注 messages
+        MW->>LLM: 再次调用（含工具结果）
+        LLM-->>FE: 继续流式响应
+    end
+
+    MW->>DB: upsert_message_to_chat<br/>(content + output)
+    FE->>FE: 更新 history.messages
+</pre>
+</div>
+</div>
+
+<!-- ===== 02. 前端 ===== -->
+<div class="s" id="s2">
+<h2>🖥️ 02. 前端消息管理</h2>
+<p>前端使用<strong>树形结构</strong>管理消息，支持分支和重新生成。核心数据结构和关键函数如下。</p>
+
+<h3>消息树结构</h3>
+<p>前端的 <code>history</code> 变量是一个 Map + 当前节点指针，而非简单数组：</p>
+<div class="fr">src/lib/components/chat/Chat.svelte:164-167</div>
+<pre>let history = {
+  messages: {},    // Map&lt;id, Message&gt;  每条消息含 parentId / childrenIds
+  currentId: null  // 当前激活的消息 ID
+};</pre>
+
+<h3>历史消息收集</h3>
+<p>核心函数 <code>createMessagesList</code> 从当前 messageId 沿 <code>parentId</code> 向上回溯，再 reverse 成时间顺序：</p>
+<div class="fr">src/lib/utils/index.ts:1304-1318</div>
+<pre>export const createMessagesList = (history, messageId) => {
+  const list = [];
+  let currentId = messageId;
+  while (currentId !== null && currentId !== undefined) {
+    const message = history.messages[currentId];
+    if (message === undefined) break;
+    list.push(message);
+    currentId = message.parentId;
+  }
+  return list.reverse();
+};</pre>
+
+<h3>请求体构造</h3>
+<p>持久化会话和临时会话的关键差异：</p>
+<div class="two-col">
+  <div>
+    <div class="co co-t"><strong>持久化会话（默认）</strong>前端 messages 仅包含 system prompt，历史由后端从 DB 加载</div>
+  </div>
+  <div>
+    <div class="co co-w"><strong>临时会话</strong>前端发送完整对话历史，chat_id 以 local: 开头，不写 DB</div>
+  </div>
+</div>
+<div class="fr">src/lib/components/chat/Chat.svelte:2148-2196</div>
+<pre>let messages = [
+  params?.system || $settings.system
+    ? { role: 'system', content: `${params?.system ?? $settings?.system ?? ''}` }
+    : undefined
+].filter(Boolean);
+
+if ($temporaryChatEnabled) {
+  messages = [...messages, ..._messages.map(...)];  // 临时会话：发完整历史
+}</pre>
+
+<h3>前端关键函数</h3>
+<table>
+<tr><th>函数</th><th>文件</th><th>职责</th></tr>
+<tr><td><code>createMessagesList</code></td><td>utils/index.ts</td><td>parentId 链 → 线性 messages</td></tr>
+<tr><td><code>submitPrompt</code></td><td>Chat.svelte</td><td>创建 user 消息，写入 history</td></tr>
+<tr><td><code>sendMessageSocket</code></td><td>Chat.svelte</td><td>构造请求体，POST API</td></tr>
+<tr><td><code>chatCompletionEventHandler</code></td><td>Chat.svelte</td><td>Socket 流式更新 message.content</td></tr>
+<tr><td><code>saveChatHandler</code></td><td>Chat.svelte</td><td>updateChatById 写回 DB</td></tr>
+<tr><td><code>loadChat</code></td><td>Chat.svelte</td><td>getChatById 恢复 history</td></tr>
+</table>
+</div>
+
+<!-- ===== 03. 后端 ===== -->
+<div class="s" id="s3">
+<h2>⚙️ 03. 后端上下文组装</h2>
+<p>后端收到请求后，通过 <code>process_chat_payload</code> 流水线组装完整上下文。这是上下文记忆的核心环节。</p>
+
+<h3>入口与 DB 持久化</h3>
+<div class="fr">backend/open_webui/main.py:987-993</div>
+<pre>@app.post('/api/chat/completions')
+async def chat_completion(request, form_data, user=Depends(get_verified_user)):
+    # 1. 解析 metadata（chat_id, user_message, parent_id, ...）
+    # 2. 创建/更新 chat 记录 + 写入 user/assistant 占位消息到 DB
+    # 3. process_chat_payload() → 组装 LLM 上下文
+    # 4. generate_chat_completion() → 调用上游模型
+    # 5. process_chat_response() → 处理流式响应、工具循环、最终写 DB</pre>
+
+<h3>从 DB 加载历史消息</h3>
+<p>持久化会话的历史消息从 <code>chat_message</code> 表加载，沿 <code>parentId</code> 重建链：</p>
+<div class="fr">backend/open_webui/utils/middleware.py:2236-2249</div>
+<pre>async def load_messages_from_db(chat_id, message_id):
+    messages_map = await Chats.get_messages_map_by_chat_id(chat_id)
+    db_messages = get_message_list(messages_map, message_id)
+    return [{k: v for k, v in msg.items()
+             if k in ('role', 'content', 'output', 'files')}
+            for msg in db_messages]</pre>
+
+<h3>还原工具调用历史</h3>
+<p>DB 中 assistant 消息的工具调用存在 <code>output</code> 数组中（Responses API 格式），发送给 LLM 前需要还原为标准 Chat Completions 格式：</p>
+<div class="fr">backend/open_webui/utils/middleware.py:2269-2297</div>
+<pre>def process_messages_with_output(messages):
+    for message in messages:
+        if message.get('role') == 'assistant' and message.get('output'):
+            # output 数组 → assistant.tool_calls + tool 消息
+            output_messages = convert_output_to_messages(message['output'])
+            processed.extend(output_messages)
+        else:
+            processed.append(message)
+    return processed</pre>
+
+<p><code>convert_output_to_messages</code> 的转换规则：</p>
+<table>
+<tr><th>output 中的类型</th><th>转换为</th></tr>
+<tr><td><code>function_call</code></td><td><code>assistant</code> 消息 + <code>tool_calls</code> 数组</td></tr>
+<tr><td><code>function_call_output</code></td><td><code>{ role: 'tool', tool_call_id, content }</code></td></tr>
+<tr><td><code>message</code></td><td>普通 <code>assistant</code> 文本消息</td></tr>
+<tr><td><code>reasoning</code></td><td>按 provider 格式嵌入思考过程</td></tr>
+</table>
+
+<h3>后端关键函数</h3>
+<table>
+<tr><th>函数</th><th>文件</th><th>职责</th></tr>
+<tr><td><code>process_chat_payload</code></td><td>middleware.py</td><td>上下文组装流水线</td></tr>
+<tr><td><code>load_messages_from_db</code></td><td>middleware.py</td><td>DB → messages[]</td></tr>
+<tr><td><code>process_messages_with_output</code></td><td>middleware.py</td><td>output → tool_calls 格式</td></tr>
+<tr><td><code>convert_output_to_messages</code></td><td>misc.py</td><td>OR output → OpenAI messages</td></tr>
+<tr><td><code>merge_system_messages</code></td><td>misc.py</td><td>合并多条 system 为一条</td></tr>
+<tr><td><code>process_chat_response</code></td><td>middleware.py</td><td>流式响应 + 工具循环</td></tr>
+</table>
+</div>
+
+<!-- ===== 04. System Prompt ===== -->
+<div class="s" id="s4">
+<h2>📝 04. System Prompt 多源注入</h2>
+<p>System Prompt 由多个来源按顺序叠加，最终由 <code>merge_system_messages()</code> 合并为一条消息放在 messages 数组最前面。</p>
+
+<div class="mw">
+<pre class="mermaid">
+flowchart LR
+    A["用户 Settings<br/>$settings.system"] --> M["merge_system_messages()"]
+    B["Folder 项目设置<br/>folder.data.system_prompt"] --> M
+    C["Skills Gate (RCA)<br/>skills_gate.build_full_system_prompt()"] --> M
+    D["Memory 检索<br/>chat_memory_handler (top-k=3)"] --> M
+    E["RAG 文件/知识库<br/>apply_source_context_to_messages"] --> M
+    F["模型级 system<br/>model_info.params.system"] --> M
+    M --> G["最终 system 消息<br/>(合并为一条)"]
+</pre>
+</div>
+
+<table>
+<tr><th>顺序</th><th>来源</th><th>代码位置</th><th>注入时机</th></tr>
+<tr><td>1</td><td>用户 Settings</td><td>前端 <code>$settings.system</code> → <code>messages[0]</code></td><td><code>apply_system_prompt_to_body</code></td></tr>
+<tr><td>2</td><td>Folder 项目设置</td><td><code>folder.data['system_prompt']</code></td><td><code>process_chat_payload</code></td></tr>
+<tr><td>3</td><td>Skills Gate (RCA)</td><td><code>skills_gate.build_full_system_prompt()</code></td><td><code>process_chat_payload</code></td></tr>
+<tr><td>4</td><td>Memory 检索</td><td><code>chat_memory_handler</code> → top-k=3</td><td><code>process_chat_payload</code></td></tr>
+<tr><td>5</td><td>RAG 文件/知识库</td><td><code>apply_source_context_to_messages</code></td><td><code>process_chat_payload</code></td></tr>
+<tr><td>6</td><td>模型级 system</td><td><code>model_info.params.system</code></td><td><code>generate_chat_completion</code></td></tr>
+<tr><td>最终</td><td>合并</td><td><code>merge_system_messages()</code></td><td><code>process_chat_payload</code> 末尾</td></tr>
+</table>
+
+<div class="fr">backend/open_webui/utils/misc.py:355-379</div>
+<pre>def merge_system_messages(messages):
+    system_contents = []
+    for message in messages:
+        if message.get('role') == 'system':
+            system_contents.append(get_content_from_message(message))
+    merged = {'role': 'system', 'content': '\n'.join(system_contents)}
+    return [merged, *other_messages]</pre>
+</div>
+
+<!-- ===== 05. 最终 messages ===== -->
+<div class="s" id="s5">
+<h2>📤 05. 最终发送给 LLM 的 messages 结构</h2>
+<p>经过完整的上下文组装流水线后，发送给 LLM Provider 的 messages 数组如下。多轮对话 + 工具调用的完整上下文。</p>
+
+<pre>[
+  {
+    "role": "system",
+    "content": "合并后的全部 system prompt (settings + SkillsGate + Memory + RAG + ...)"
+  },
+  {
+    "role": "user",
+    "content": "第 1 轮用户消息"
+  },
+  {
+    "role": "assistant",
+    "content": "第 1 轮 AI 回复文本",
+    "tool_calls": [
+      { "id": "call_xxx", "type": "function",
+        "function": { "name": "grep_log", "arguments": "{...}" } }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "call_xxx",
+    "content": "grep_log 工具返回结果"
+  },
+  {
+    "role": "user",
+    "content": "第 2 轮用户消息"
+  },
+  {
+    "role": "assistant",
+    "content": "第 2 轮 AI 回复"
+  },
+  {
+    "role": "user",
+    "content": "当前用户消息（本次请求）"
+  }
+]</pre>
+
+<div class="co co-i"><strong>关键设计</strong>工具调用结果（<code>role: tool</code>）也会进入上下文，占用 token。大量工具调用会加速上下文被占满。</div>
+</div>
+
+<!-- ===== 06. 持久化 ===== -->
+<div class="s" id="s6">
+<h2>💾 06. 消息持久化架构</h2>
+<p>消息同时存在于前端状态和后端数据库，后端 DB 是"真相来源"。</p>
+
+<div class="mw">
+<pre class="mermaid">
+flowchart TB
+    subgraph 前端
+        A["Svelte history 变量<br/>(运行时 UI 状态)"]
+        B["sessionStorage<br/>(未发送的草稿)"]
+    end
+    subgraph 后端 DB
+        C["chat 表<br/>chat.chat JSON<br/>(含 history.messages 树)"]
+        D["chat_message 表<br/>(每条消息独立行<br/>content + output + files)"]
+    end
+
+    A -->|saveChatHandler<br/>updateChatById| C
+    C -->|loadChat<br/>getChatById| A
+    D -->|load_messages_from_db<br/>get_message_list| E["LLM 上下文<br/>messages[]"]
+    C -.->|fallback| E
+</pre>
+</div>
+
+<table>
+<tr><th>存储层</th><th>存储位置</th><th>内容</th><th>写入时机</th></tr>
+<tr><td><span class="tag tag-blue">后端 DB (主)</span></td><td>chat 表 + chat_message 表</td><td>history.messages 树 + content/output/files</td><td>请求开始时写占位 → 完成时写最终内容</td></tr>
+<tr><td><span class="tag tag-purple">前端状态</span></td><td>Svelte history 变量</td><td>运行时 UI 状态</td><td>Socket 事件实时更新</td></tr>
+<tr><td><span class="tag tag-teal">前端草稿</span></td><td>sessionStorage</td><td>未发送的输入框内容</td><td>输入时自动保存</td></tr>
+</table>
+
+<div class="co co-w"><strong>注意</strong>临时会话（chat_id 以 local: 开头）不写入 DB，关闭页面即丢失所有上下文。</div>
+</div>
+
+<!-- ===== 07. 工具循环 ===== -->
+<div class="s" id="s7">
+<h2>🔧 07. 工具调用循环</h2>
+<p>当 LLM 返回 <code>tool_calls</code> 时，后端会执行工具并将结果回注 messages，然后再次调用 LLM。这个循环会持续到 LLM 不再请求工具调用为止。</p>
+
+<div class="mw">
+<pre class="mermaid">
+sequenceDiagram
+    participant MW as middleware.py<br/>process_chat_response
+    participant Tool as 工具函数<br/>(grep_log, get_context, ...)
+    participant LLM as LLM Provider
+
+    MW->>LLM: messages[] (首次调用)
+    LLM-->>MW: response 含 tool_calls
+    MW->>Tool: 执行 grep_log(pattern, ...)
+    Tool-->>MW: 工具结果
+    MW->>MW: 结果写入 output 数组
+    MW->>MW: convert_output_to_messages()
+    Note over MW: messages += [assistant(tool_calls), tool(result)]
+    MW->>LLM: messages[] (含工具结果，第2次调用)
+    LLM-->>MW: 最终文本回复（无 tool_calls）
+    MW->>MW: upsert_message_to_chat()
+</pre>
+</div>
+
+<p>工具结果的存储和还原机制：</p>
+<table>
+<tr><th>阶段</th><th>格式</th><th>存储位置</th></tr>
+<tr><td>运行时（LLM 交互）</td><td><code>assistant.tool_calls</code> + <code>{ role: 'tool', content }</code></td><td>内存中的 messages 数组</td></tr>
+<tr><td>持久化（写 DB）</td><td><code>output</code> 数组（Responses API 格式）</td><td>chat_message 表 / chat.chat JSON</td></tr>
+<tr><td>下次加载（读 DB）</td><td><code>convert_output_to_messages()</code> 还原</td><td>从 DB → 标准 Chat Completions 格式</td></tr>
+</table>
+</div>
+
+<!-- ===== 08. 截断 ===== -->
+<div class="s" id="s8">
+<h2>📏 08. 上下文截断策略</h2>
+<p>Open WebUI 主聊天链路<strong>没有</strong>基于 token 的历史消息截断逻辑。完整的 parentId 链都会送入 LLM，受模型 Provider 自身的 context window 限制。</p>
+
+<table>
+<tr><th>机制</th><th>位置</th><th>作用</th></tr>
+<tr><td><code>max_tokens</code></td><td>请求 params → Provider</td><td><strong>生成长度</strong>限制，非上下文截断</td></tr>
+<tr><td><code>truncate</code></td><td>payload.py → Ollama</td><td>Ollama 特有参数</td></tr>
+<tr><td><code>truncate_content</code></td><td>utils/task.py</td><td><strong>后台任务</strong>（标题/标签生成）的 prompt 截断</td></tr>
+<tr><td>工具输出限制</td><td>tools/builtin.py</td><td><code>MAX_LINE_LENGTH=500</code>、沙箱 stdout 上限等</td></tr>
+<tr><td>Memory top-k</td><td>middleware.py</td><td>Memory 检索固定 top-k=3</td></tr>
+</table>
+
+<div class="co co-d"><strong>实际限制</strong>当会话消息累积超过模型 context window（如 GPT-4o 128K、Claude 200K）时，Provider 会截断最早的消息或返回错误。Open WebUI 本身不做主动截断。</div>
+</div>
+
+<!-- ===== 09. 完整步骤流 ===== -->
+<div class="s" id="s9">
+<h2>🔗 09. 完整调用链路步骤</h2>
+<p>从用户输入到 LLM 响应的 10 个关键步骤，标注了每一步涉及的源文件。</p>
+
+<div class="step-flow">
+
+<div class="step accent">
+  <span class="step-num">1</span><span class="step-title">用户发送消息</span>
+  <div class="step-desc"><code>Chat.svelte</code> → <code>submitPrompt()</code> → 创建 userMessage，写入 history.messages 树</div>
+  <div class="step-file"><span class="tag tag-blue">前端</span> <span class="fr">src/lib/components/chat/Chat.svelte</span></div>
+</div>
+
+<div class="step-arrow">▼</div>
+
+<div class="step">
+  <span class="step-num">2</span><span class="step-title">收集历史消息链</span>
+  <div class="step-desc"><code>createMessagesList(history, messageId)</code> → 沿 parentId 链向上回溯 → reverse 成时间序</div>
+  <div class="step-file"><span class="tag tag-blue">前端</span> <span class="fr">src/lib/utils/index.ts</span></div>
+</div>
+
+<div class="step-arrow">▼</div>
+
+<div class="step">
+  <span class="step-num">3</span><span class="step-title">构造请求体并发送</span>
+  <div class="step-desc"><code>sendMessageSocket()</code> → POST /api/chat/completions（持久化 chat 仅发 system prompt）</div>
+  <div class="step-file"><span class="tag tag-blue">前端</span> <span class="fr">src/lib/apis/openai/index.ts</span></div>
+</div>
+
+<div class="step-arrow">▼ HTTP POST</div>
+
+<div class="step accent">
+  <span class="step-num">4</span><span class="step-title">后端入口</span>
+  <div class="step-desc"><code>chat_completion()</code> → 解析 metadata → 写入 user + assistant 占位消息到 DB</div>
+  <div class="step-file"><span class="tag tag-green">后端</span> <span class="fr">backend/open_webui/main.py</span></div>
+</div>
+
+<div class="step-arrow">▼</div>
+
+<div class="step">
+  <span class="step-num">5</span><span class="step-title">从 DB 加载历史消息</span>
+  <div class="step-desc"><code>load_messages_from_db(chat_id, message_id)</code> → chat_message 表 → 沿 parentId 重建消息链</div>
+  <div class="step-file"><span class="tag tag-green">后端</span> <span class="fr">backend/open_webui/utils/middleware.py</span></div>
+</div>
+
+<div class="step-arrow">▼</div>
+
+<div class="step">
+  <span class="step-num">6</span><span class="step-title">还原工具调用历史</span>
+  <div class="step-desc"><code>process_messages_with_output()</code> → <code>convert_output_to_messages()</code>：output 数组 → assistant.tool_calls + tool 消息</div>
+  <div class="step-file"><span class="tag tag-green">后端</span> <span class="fr">backend/open_webui/utils/misc.py</span></div>
+</div>
+
+<div class="step-arrow">▼</div>
+
+<div class="step">
+  <span class="step-num">7</span><span class="step-title">注入 System Prompt</span>
+  <div class="step-desc">settings → folder → SkillsGate → Memory → RAG → model → <code>merge_system_messages()</code> 合并</div>
+  <div class="step-file"><span class="tag tag-green">后端</span> <span class="fr">backend/open_webui/utils/middleware.py</span></div>
+</div>
+
+<div class="step-arrow">▼</div>
+
+<div class="step accent">
+  <span class="step-num">8</span><span class="step-title">发送给 LLM</span>
+  <div class="step-desc"><code>generate_chat_completion()</code> → [system, user, assistant(tool_calls), tool, ...] → Provider API</div>
+  <div class="step-file"><span class="tag tag-green">后端</span> <span class="fr">backend/open_webui/routers/openai.py</span></div>
+</div>
+
+<div class="step-arrow">▼ SSE / Socket</div>
+
+<div class="step">
+  <span class="step-num">9</span><span class="step-title">流式响应 + 工具循环</span>
+  <div class="step-desc"><code>process_chat_response()</code> → 若 LLM 返回 tool_calls → 执行工具 → 结果回注 → 再次调用 LLM</div>
+  <div class="step-file"><span class="tag tag-green">后端</span> <span class="fr">backend/open_webui/utils/middleware.py</span></div>
+</div>
+
+<div class="step-arrow">▼</div>
+
+<div class="step">
+  <span class="step-num">10</span><span class="step-title">持久化 + 前端更新</span>
+  <div class="step-desc"><code>upsert_message_to_chat()</code> 写 DB（content + output）→ Socket 推送 → history.messages 更新</div>
+  <div class="step-file"><span class="tag tag-purple">前端+后端</span> <span class="fr">backend/open_webui/models/chats.py</span></div>
+</div>
+
+</div>
+</div>
+
+<div class="footer">Open WebUI 上下文记忆机制 · RCA Project · 2026-06</div>
+
+</div>
+
+<script>
+mermaid.initialize({startOnLoad:true,theme:'base',themeVariables:{
+  background:'#ffffff',primaryColor:'#dbeafe',primaryTextColor:'#1a202c',primaryBorderColor:'#2563eb',
+  secondaryColor:'#d1fae5',secondaryTextColor:'#1a202c',secondaryBorderColor:'#16a34a',
+  tertiaryColor:'#f8fafc',tertiaryTextColor:'#1a202c',tertiaryBorderColor:'#e2e8f0',
+  lineColor:'#64748b',textColor:'#1a202c',mainBkg:'#ffffff',nodeBkg:'#dbeafe',nodeBorder:'#2563eb',
+  clusterBkg:'#f8fafc',clusterBorder:'#e2e8f0',titleColor:'#1a202c',edgeLabelBackground:'#ffffff',
+  actorBkg:'#dbeafe',actorBorder:'#2563eb',actorTextColor:'#1a202c',actorLineColor:'#64748b',
+  signalColor:'#1a202c',signalTextColor:'#1a202c',labelBoxBkgColor:'#ffffff',labelBoxBorderColor:'#e2e8f0',
+  labelTextColor:'#1a202c',loopTextColor:'#1a202c',noteBkgColor:'#fef3c7',noteBorderColor:'#d97706',
+  noteTextColor:'#1a202c',activationBkgColor:'#eff6ff',activationBorderColor:'#2563eb',sequenceNumberColor:'#ffffff'
+},flowchart:{useMaxWidth:true,htmlLabels:true,curve:'basis'},sequence:{useMaxWidth:true,mirrorActors:false}});
+</script>
+
+<!-- ===== 侧边栏 JS 开始 ===== -->
+<script>
+(function(){
+  const sidebar=document.getElementById('toc-content');
+  const sections=document.querySelectorAll('.s[id]');
+  let groups=[];
+  sections.forEach(s=>{
+    const h2=s.querySelector('h2');
+    if(!h2)return;
+    const h2a=document.createElement('a');
+    h2a.href='#'+s.id;h2a.textContent=h2.textContent;h2a.className='toc-h2';
+    sidebar.appendChild(h2a);
+    const group=document.createElement('div');group.className='toc-group';
+    const h3s=s.querySelectorAll('h3');
+    h3s.forEach(h3=>{
+      if(!h3.id)h3.id='h3-'+Math.random().toString(36).substr(2,6);
+      const a=document.createElement('a');a.href='#'+h3.id;a.textContent=h3.textContent;a.className='toc-sub';
+      group.appendChild(a);
+    });
+    sidebar.appendChild(group);
+    groups.push({h2a,group,section:s});
+    h2a.addEventListener('click',e=>{
+      e.preventDefault();s.scrollIntoView({behavior:'smooth'});
+      groups.forEach(g=>{g.h2a.classList.remove('expanded');g.group.classList.remove('open')});
+      h2a.classList.add('expanded');group.classList.add('open');
+    });
+  });
+  let ticking=false;
+  window.addEventListener('scroll',()=>{
+    if(ticking)return;ticking=true;
+    requestAnimationFrame(()=>{
+      const scrollY=window.scrollY+100;
+      sidebar.querySelectorAll('a').forEach(a=>a.classList.remove('active'));
+      let current=null;
+      groups.forEach(g=>{if(g.section.offsetTop<=scrollY)current=g});
+      if(current){
+        current.h2a.classList.add('active','expanded');current.group.classList.add('open');
+        groups.filter(g=>g!==current).forEach(g=>{g.h2a.classList.remove('expanded');g.group.classList.remove('open')});
+        const subs=current.group.querySelectorAll('a');
+        let activeSub=null;
+        subs.forEach(a=>{const t=document.querySelector(a.getAttribute('href'));if(t&&t.offsetTop<=scrollY)activeSub=a});
+        if(activeSub)activeSub.classList.add('active');
+      }
+      ticking=false;
+    });
+  });
+})();
+function toggleSidebar(){document.body.classList.toggle('sb-open');document.body.classList.toggle('sb-closed')}
+</script>
+<!-- ===== 侧边栏 JS 结束 ===== -->
+
+<!-- ===== 复制按钮 JS 开始 ===== -->
+<script>
+document.querySelectorAll('pre:not(.mermaid)').forEach(pre=>{
+  if(pre.closest('.mw'))return;
+  const btn=document.createElement('button');btn.className='copy-btn';btn.textContent='复制';
+  pre.appendChild(btn);
+  btn.addEventListener('click',()=>{
+    const code=pre.querySelector('code')||pre;
+    navigator.clipboard.writeText(code.textContent.replace(/^复制$|^已复制$/m,'')).then(()=>{
+      btn.textContent='已复制';btn.classList.add('copied');
+      setTimeout(()=>{btn.textContent='复制';btn.classList.remove('copied')},1500);
+    });
+  });
+});
+</script>
+<!-- ===== 复制按钮 JS 结束 ===== -->
+
+<!-- ===== Mermaid 工具栏 JS 开始 ===== -->
+<script>
+(function(){
+  const mermaidSources=new Map();
+  document.querySelectorAll('.mw').forEach((mw,i)=>{
+    const pre=mw.querySelector('pre.mermaid');
+    if(pre)mermaidSources.set(i,pre.textContent);
+  });
+  function initToolbars(){
+    document.querySelectorAll('.mw').forEach((mw,i)=>{
+      const svg=mw.querySelector('svg');if(!svg||mw.querySelector('.mw-toolbar'))return;
+      const inner=document.createElement('div');inner.className='mw-inner';
+      svg.parentNode.insertBefore(inner,svg);inner.appendChild(svg);
+      const rect=svg.getBoundingClientRect();
+      const origW=rect.width,origH=rect.height;let scale=1;
+      const toolbar=document.createElement('div');toolbar.className='mw-toolbar';
+      const mkBtn=(svgIcon,title,fn)=>{
+        const b=document.createElement('button');b.title=title;b.innerHTML=svgIcon;
+        b.addEventListener('click',fn);toolbar.appendChild(b);
+      };
+      mkBtn('<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>','放大',()=>{if(scale<5){scale+=.25;applyScale()}});
+      mkBtn('<svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>','缩小',()=>{if(scale>.25){scale-=.25;applyScale()}});
+      mkBtn('<svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>','重置',()=>{scale=1;applyScale()});
+      mkBtn('<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>','全屏',()=>{
+        if(mw.classList.contains('mw-fullscreen')){mw.classList.remove('mw-fullscreen');document.body.style.overflow='';scale=1;applyScale()}
+        else{mw.classList.add('mw-fullscreen');document.body.style.overflow='hidden'}
+      });
+      mkBtn('<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>','复制',()=>{
+        const src=mermaidSources.get(i)||'';navigator.clipboard.writeText(src);
+      });
+      mw.appendChild(toolbar);
+      function applyScale(){
+        svg.style.width=(origW*scale)+'px';svg.style.height=(origH*scale)+'px';
+        svg.style.minWidth=(origW*scale)+'px';svg.style.minHeight=(origH*scale)+'px';
+      }
+    });
+  }
+  const obs=new MutationObserver(()=>{if(document.querySelector('.mw svg')){initToolbars();obs.disconnect()}});
+  obs.observe(document.body,{childList:true,subtree:true});
+  setTimeout(initToolbars,2000);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.mw-fullscreen').forEach(m=>m.classList.remove('mw-fullscreen'));document.body.style.overflow=''}});
+})();
+</script>
+<!-- ===== Mermaid 工具栏 JS 结束 ===== -->
+
+</body>
+</html>
