@@ -40,6 +40,7 @@ disable-model-invocation: true
 | 保存失败 | ⑦保存 | `[ExportDocWorker]` |
 | 图片不显示 | ⑧资源 | `[attachment]` |
 | draft加载失败 | ⑤Draft | `[DraftStorageService]` |
+| 文字乱码/方块 | 字体缺失(非错误) | 无错误日志,需上传字体 |
 
 > 场景详细诊断见 `references/opendoc-error-scenarios.md`
 
