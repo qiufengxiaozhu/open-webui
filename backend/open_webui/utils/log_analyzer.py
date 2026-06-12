@@ -9,12 +9,12 @@ TOP_ERROR_PATTERNS = 20
 CONTEXT_LINES = 50
 
 LOG_LEVEL_PATTERN = re.compile(
-    r'\b(ERROR|ERR|WARN|WARNING|INFO|DEBUG|FATAL|TRACE|CRITICAL)\b',
+    r'\b(ERROR|ERR|WARN|WARNING|INFO|DEBUG|FATAL|TRACE|CRITICAL|SEVERE)\b',
     re.IGNORECASE,
 )
 
 ERROR_TRIGGER_PATTERN = re.compile(
-    r'\b(ERROR|ERR|FATAL|CRITICAL|Exception|Traceback)\b',
+    r'\b(ERROR|ERR|FATAL|CRITICAL|SEVERE|Exception|Traceback)\b',
     re.IGNORECASE,
 )
 
@@ -26,10 +26,16 @@ TIMESTAMP_PATTERNS = [
     re.compile(r'(\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2})'),
     re.compile(r'(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})'),
     re.compile(r'(\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}:\d{2})'),
+    # Java util.logging 格式: "May 25, 2026 2:50:16 AM" / "May 25, 2026 10:50:16 PM"
+    re.compile(
+        r'((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M)',
+        re.IGNORECASE,
+    ),
 ]
 
 STACK_LINE_PATTERN = re.compile(
-    r'^(\s+|at\s+\S|\s+File\s+["\']|\s+Caused by:|\s+\.\.\.\s+\d+\s+more|\s+~\[\d+\])',
+    r'^(\s+|at\s+\S|\s+File\s+["\']|\s*Caused by:|\s*\.\.\.\s+\d+\s+more|\s+~\[\d+\]'
+    r'|[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*\.[A-Z]\w*([Ee]xception|[Ee]rror):)',  # Java 异常类名行
     re.IGNORECASE,
 )
 
@@ -47,7 +53,7 @@ def _normalize_level(level: str) -> str:
     level = level.upper()
     if level in ('WARN', 'WARNING'):
         return 'WARN'
-    if level in ('ERR', 'CRITICAL'):
+    if level in ('ERR', 'CRITICAL', 'SEVERE'):
         return 'ERROR'
     return level
 
@@ -68,6 +74,7 @@ def _parse_timestamp(ts: str) -> Optional[datetime]:
         '%Y/%m/%d %H:%M:%S',
         '%m-%d-%Y %H:%M:%S',
         '%m/%d/%Y %H:%M:%S',
+        '%b %d, %Y %I:%M:%S %p',  # Java util.logging 格式: "May 25, 2026 2:50:16 AM"
     ):
         try:
             return datetime.strptime(normalized[:26], fmt)

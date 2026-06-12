@@ -134,8 +134,21 @@
 **诊断步骤**：
 1. 搜索 taskId 找到 Node 端的 `modelOpUnSupport` / `processResult: false`
 2. 从 Node 日志提取 ModelOp 子任务 ID（如 `4aafc1d1-...`）
-3. 用子任务 ID 在**所有 TaskServer 的 java-systemOut*.log** 中搜索（注意时区换算）
-4. 找到 `Grpsp2pngConverter` + `CellsException: Unknown image format` → 确认根因
+3. **计算 Java 时间窗口**：Node 时间 - 8h = Java 时间（如 Node 10:50 → Java 02:50 AM）
+4. 用子任务 ID + 时间窗口在**所有 TaskServer 的全部 java-systemOut*.log** 中搜索
+5. 如果 taskId 无匹配，**立即用功能关键词扩大搜索**：`Grpsp2pngConverter|Unknown image format|CellsException|SEVERE`
+6. 找到 `Grpsp2pngConverter` + `CellsException: Unknown image format` → 确认根因
+7. 用 `get_context` 查看报错前后 20 行，确认 taskId 和转换路径
+
+**搜索遗漏防范清单**（基于历史教训）：
+- ❌ 常见错误 1：只搜了 java-systemOut.0.log 前 400 行就认为"没有 Java 报错"——实际报错在 1600 行之后
+- ❌ 常见错误 2：`grep_log` 返回 `total: 30, limit: 30` 时停止搜索——结果被截断，需缩小范围重搜
+- ❌ 常见错误 3：只搜 `grpsp` 小写片段而漏掉了 `Grpsp2pngConverter` 全类名的匹配——应同时用多个关键词
+- ❌ 常见错误 4：只搜了 TaskServer_4 就下结论——任务可能分派到 TaskServer_2 / TaskServer_3 / TaskServer_5
+- ❌ 常见错误 5：看到 Node 端 `ENOENT` 就直接诊断为"文件丢失"——必须先反查 Java 端确认文件是否本应由 Java 生成
+- ❌ 常见错误 6：第 1 轮搜 `BatchOBJS2PNGConverter` 返回 30 条全是 5/19 的 INFO 级旧日志（行号 70-400），就误认为没有异常——真正的 5/25 SEVERE 错误（`Grpsp2pngConverter` + `Unknown image format`）在 1600 行之后被旧 INFO "挤掉"了
+- ✅ 正确做法：**至少 3 轮 grep_log**（taskId → SEVERE/Exception → 功能关键词），覆盖全部 TaskServer 节点和全部轮转文件
+- ✅ 截断自检：每次 grep_log 返回后，检查 3 项：①条数=30？→ 截断 ②最新条目日期覆盖事件日？→ 关键词被淹没 ③日志级别全是 INFO？→ SEVERE 被挤掉
 
 **引导用户验证**：
 1. 在 Excel/WPS 中打开文件，找到含图片的 SmartArt 组合图形，**右键→取消组合**成普通图片后重新上传

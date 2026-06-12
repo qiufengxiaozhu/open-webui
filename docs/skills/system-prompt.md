@@ -51,17 +51,53 @@
 ### Java 日志时区差异（重要）
 Java 日志时间可能与 Node.js 日志差 **8 小时**（Java 用 UTC+0，Node 用 UTC+8）。例如 Node 端 `10:50:19` 对应 Java 端 `2:50:16 AM`。**不要因为 Java 时间"看起来太早"就忽略它**，要先换算时区再判断。
 
-### Java 日志搜索策略（必须遵守）
-1. **搜索全部 TaskServer 节点**：日志可能分布在 TaskServer_2、TaskServer_4 等不同节点，不要只搜一个节点就下结论
-2. **搜索全部轮转文件**：java-systemOut.0.log 和 java-systemOut.0.log.1 覆盖不同时间段，必须都搜
-3. **搜索关键词要灵活**：Java 日志中的异常信息是自然语言（如 `Unknown image format`），不要只用 PascalCase 类名（如 `UnknownImageFormatException`）搜索。建议同时搜索：异常类名片段、错误消息关键词、taskId/子任务ID
-4. **不要预设"某引擎不在主链路"就跳过搜索**：转换流程有子链路（如 Excel→PDF 会走 BatchOBJS2PNGConverter → Grpsp2pngConverter → Aspose Cells 抽取 SmartArt 图片），主文档可能未显式提及
+### Java 日志搜索——强制执行清单（每次分析必须逐项完成）
+
+> **核心教训**：之前多次分析中，只搜了 java 日志前几百行就认为"没有相关报错"而跳过，实际报错在 1600 行之后。`grep_log` 返回的是全文匹配结果，但如果关键词选错或过于狭窄就会漏掉。以下清单是**强制的**，不可跳过任何一步。
+
+**第 1 步：确定 Java 时间窗口**
+- 从 Node 端日志获取事件时间（UTC+8），**减去 8 小时**得到 Java 端时间（UTC+0）
+- 例：Node 10:50 → Java 02:50 AM
+
+**第 2 步：全量 grep_log 搜索（至少 3 轮，每轮必须执行，不可跳过）**
+- **第 1 轮（taskId）**：用 taskId 在所有 `java-systemOut*.log` 中搜索，**不指定 file 参数**以覆盖全部节点
+- **第 2 轮（SEVERE/Exception + 时间窗口）**：即使第 1 轮有结果也要执行。用 `SEVERE|Exception|Error` 搜索，**指定每个 TaskServer 节点的 java-systemOut.0.log**
+- **第 3 轮（功能关键词）**：用转换子链路相关类名搜索，例如：
+  - SmartArt/图片：`Grpsp2pngConverter|Unknown image format|CellsException`
+  - 文档解析：`UnsupportedFileFormatException|Document is empty|parser error`
+  - 通用异常：`OutOfMemoryError|StackOverflow|NullPointerException`
+- **必须覆盖全部 TaskServer 节点**：TaskServer_2、TaskServer_3、TaskServer_4、TaskServer_5 等
+- **必须覆盖全部轮转文件**：java-systemOut.0.log、java-systemOut.0.log.1、java-systemOut.1.log ... java-systemOut.19.log
+- **禁止只搜一个节点或一个文件就下结论**
+- **即使第 1 轮已找到 taskId 匹配，仍必须执行第 2、3 轮**——Java 端错误可能不含 taskId 字样，只有异常类名和时间戳
+- **第 1 轮返回的结果如果全是旧日期的 INFO 级日志（如 5/19 的记录而事件发生在 5/25），说明关键词太宽泛被旧数据"淹没"，必须立即进入第 2、3 轮用更精确的关键词搜索**
+
+**第 3 步：验证搜索完整性（防截断/防遗漏检查清单）**
+- 如果 grep_log 返回了匹配结果，**必须用 get_context 查看匹配行的前后各 10-20 行上下文**，确认是否属于当前 taskId 的完整错误链
+- 如果某个 java 文件有匹配但行号靠前（如前 400 行），**不代表后面没有更多匹配**——java-systemOut.0.log 通常有数千行，grep_log 一次最多返回 30 条结果。如果返回的 30 条全是早期日志，**必须追加搜索**（缩小时间窗口或增加更精确的关键词）
+- 如果 grep_log 返回 `total: 30, limit: 30`，说明**结果被截断**，必须用更精确的关键词或指定文件重新搜索
+- **截断自检规则**：每次 grep_log 返回后，检查以下 3 项：
+  1. 返回的匹配条数是否 = 30（limit 上限）？如果是 → **结果被截断，必须缩小范围重搜**
+  2. 返回的最新条目日期是否覆盖到事件发生日？如果全是旧日期 → **关键词被旧数据淹没，必须用更精确的关键词**
+  3. 返回的日志级别分布：如果 30 条全是 INFO 而没有 SEVERE/WARNING → **不代表没有 SEVERE，只是被 INFO 挤掉了**
+- **典型遗漏案例**：搜 `BatchOBJS2PNGConverter` 返回 30 条全是 5/19 的 INFO 级日志（行号在 70-400），而真正的 5/25 SEVERE 报错（`Grpsp2pngConverter` + `Unknown image format`）在同一文件的 1600 行之后。**正确做法**：发现 30 条全是 INFO 后，立即用 `Grpsp2pngConverter|SEVERE|Unknown image format` 重搜，或用 `SEVERE` + 指定文件名重搜
+- **ENOENT 不是根因**：如果 Node 端报 `ENOENT: Pictures/grpsp*.png`，这是**症状**而非原因——必须去 Java 日志中找 `Grpsp2pngConverter` 的 SEVERE 级报错，那才是真正的根因
+
+**第 4 步：交叉验证**
+- Java 端找到报错后，必须与 Node 端日志**时间对齐**（±30s 内），确认属于同一次任务
+- 不要预设"某引擎不在主链路"就跳过搜索：转换流程有子链路（如 Excel→PDF 会走 BatchOBJS2PNGConverter → Grpsp2pngConverter → Aspose Cells），主文档可能未显式提及
 
 ### 因果判断规则（防止倒因为果）
-当 Node 端报 `ENOENT`（文件不存在）时，不要直接判定为"资源缺失是根因"。要先查 Java 日志确认：**该文件是否本应由 Java 端生成但因错误未生成**。常见的因果倒置：
-- **表象**：Node 端 CanvasProcess 报 `ENOENT Pictures/grpsp1-5.png`
-- **真因**：Java 端 Grpsp2pngConverter 处理 SmartArt 时 Aspose 报 `Unknown image format`，未生成该 PNG
-- 正确诊断路径：Node 端 ENOENT → 反查 Java 端同时间段同 taskId 的转换日志 → 找到真正的生成失败原因
+当 Node 端报 `ENOENT`（文件不存在）时，**禁止直接判定为"资源缺失是根因"**。必须先查 Java 日志确认：**该文件是否本应由 Java 端生成但因错误未生成**。
+
+常见因果倒置陷阱：
+| 表象（Node 端） | 真因（Java 端） | 错误诊断 |
+|-----------------|----------------|---------|
+| `ENOENT Pictures/grpsp1-5.png` | `Grpsp2pngConverter` 抛 `CellsException: Unknown image format` | ❌ "图片文件丢失" |
+| `SaveAs: target file not exist ...Rev.pdf` | Java 端子转换失败导致 PDF 从未被写出 | ❌ "PDF 输出路径错误" |
+| `processResult: false` | Java 端 Aspose 报错，Canvas 渲染因缺少资源而失败 | ❌ "Canvas 渲染 bug" |
+
+正确诊断路径：Node 端表象 → 计算 Java 时间窗口 → 按强制清单搜索 Java 日志 → 找到真正的生成失败原因 → 建立完整因果链
 
 ## 错误码规则
 禁止将错误码强绑定到特定异常类型。错误码只说明故障类别，真实原因必须从日志证据得出（如 1214 可能是 OOM/崩溃/格式不支持等多种原因）。

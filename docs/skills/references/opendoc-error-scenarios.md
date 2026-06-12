@@ -2,6 +2,15 @@
 
 > 诊断时先确定报错属于哪个场景，再按日志特征搜索验证。
 
+## 通用日志搜索规范（每次诊断必须遵守）
+
+1. **Node 日志**：搜索 `combined-*.log` + `error-*.log` + 所有轮转文件（`.log.1` `.log.2` 等），覆盖全部 NewDocServer / TaskServer 节点
+2. **Java 日志**：搜索**所有** `java-systemOut*.log`（`.0.log` `.1.log` ... `.19.log` 及 `.0.log.1`），覆盖全部 TaskServer 节点
+3. **时区换算**：Java 日志 UTC+0，Node 日志 UTC+8。例如 Node 端 `10:50` → Java 端 `02:50 AM`。**不要因 Java 时间"太早"而忽略**
+4. **搜索轮次**：至少 3 轮——① taskId → ② SEVERE/Exception/Error + 时间窗口 → ③ 功能关键词（如 `Grpsp2pngConverter|Unknown image format`）
+5. **截断检测**：`grep_log` 返回 `total: 30, limit: 30` 表示结果被截断，必须缩小范围重搜
+6. **因果判断**：Node 端的 `ENOENT` / `file not exist` 可能只是**表象**，需反查 Java 端确认文件是否本应由 Java 子管线生成
+
 ## 场景索引
 
 | 编号 | 报错类型 | 前端表现 | 错误码 |
@@ -133,6 +142,19 @@
 - Node 端（表象）：`ENOENT Pictures/grpsp*.png` / `can not find document draft Attachment` / `processResult: false` / `modelOpResCode: modelOpUnSupport`
 
 **诊断**：xlsx 内含 SmartArt 组合图形，Java 端 Aspose Cells 抽取子图时因图片格式不识别（EMF/WMF 等）报 `Unknown image format`，导致 PNG 未生成。Node 端读取时 ENOENT 只是表象，需反查 Java 日志找到 Aspose 报错才是根因。注意 Java 时间比 Node 早 8 小时。
+
+**诊断步骤**：
+1. Node 端搜 `ENOENT Pictures/grpsp` 或 `modelOpUnSupport`，找到失败时间和 taskId
+2. 计算 Java 时间窗口（Node 时间 - 8h）
+3. 在**全部 TaskServer 节点的全部 java-systemOut*.log** 中搜索 taskId
+4. 如果 taskId 无匹配，**扩大搜索**：`Grpsp2pngConverter|Unknown image format|CellsException|SEVERE` + 时间窗口
+5. 找到 SEVERE 报错后用 `get_context` 查看前后 20 行完整堆栈
+
+**搜索遗漏防范**：
+- ❌ 只搜了 java-systemOut.0.log 前几百行就判定"没有 Java 报错"——报错可能在文件中后段（如 1600 行以后）
+- ❌ 只搜了一个 TaskServer 节点——任务可能被调度到不同节点
+- ❌ 看到 Node 端 `ENOENT` 直接诊断为"文件丢失"——必须先确认 Java 端是否本应生成该文件
+- ✅ 至少 3 轮搜索，覆盖全部节点和全部轮转文件
 
 **引导用户验证**：
 1. 在 Excel/WPS 中打开文件，找到 SmartArt 组合图形，**右键→取消组合**成普通图片后重新上传

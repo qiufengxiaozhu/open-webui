@@ -64,18 +64,26 @@ disable-model-invocation: true
 
 ## 核心搜索关键字
 
-| 阶段 | grep_log 搜索 pattern |
-|------|----------------------|
-| 全链路 | `<taskId>` |
-| ①鉴权 | `verify token fail\|Token format is invalid\|Public API is disabled` |
-| ③入队 | `get queue lock fail\|maxActiveTask\|concurrent exceeds` |
-| ④下载 | `download error\|CONVERT_DOWNLOAD_ERROR\|0 bytes\|is too small` |
-| ⑤校验 | `Invalid File mime type\|Password Protected\|FILE_TOO_LARGE` |
-| ⑥转换 | `Result of Conversion task\|Catch Exception\|CLConvertor.*ExitCode` |
-| ⑥Java层 | `ERROR\|Exception\|OutOfMemory`（java*.log） |
-| ⑥ModelOp | `model op busy\|model op fail\|Worker.*killed\|modelOpUnSupport` |
-| ⑥SmartArt转图 | `Grpsp2pngConverter\|Unknown image format\|BatchOBJS2PNGConverter`（java*.log） |
-| ⑦回调 | `notify.*Success\|notify res fail\|task notify with error` |
+| 阶段 | grep_log 搜索 pattern | 搜索范围 |
+|------|----------------------|---------|
+| 全链路 | `<taskId>` | 全部日志 |
+| ①鉴权 | `verify token fail\|Token format is invalid\|Public API is disabled` | combined*.log |
+| ③入队 | `get queue lock fail\|maxActiveTask\|concurrent exceeds` | combined*.log |
+| ④下载 | `download error\|CONVERT_DOWNLOAD_ERROR\|0 bytes\|is too small` | combined*.log |
+| ⑤校验 | `Invalid File mime type\|Password Protected\|FILE_TOO_LARGE` | combined*.log |
+| ⑥转换(Node) | `Result of Conversion task\|Catch Exception\|CLConvertor.*ExitCode` | combined*.log + error*.log |
+| ⑥转换(Java) | `SEVERE\|Exception\|OutOfMemory\|CellsException` | **全部 java-systemOut*.log（含轮转文件）** |
+| ⑥ModelOp | `model op busy\|model op fail\|Worker.*killed\|modelOpUnSupport` | combined*.log |
+| ⑥SmartArt转图 | `Grpsp2pngConverter\|Unknown image format` | **全部 java-systemOut*.log（含轮转文件）** |
+| ⑥ENOENT症状 | `ENOENT.*grpsp\|target file not exist` | error*.log + combined*.log |
+| ⑦回调 | `notify.*Success\|notify res fail\|task notify with error` | combined*.log |
+
+> **重要**：
+> - Java 日志时间 = Node 时间 - 8h（Java UTC+0，Node UTC+8）。搜索 Java 日志时必须先换算时区
+> - `total: 30, limit: 30` 说明结果被截断，需缩小范围继续搜索
+> - 搜索必须覆盖**全部 TaskServer 节点**的**全部轮转文件**（java-systemOut.0.log ~ java-systemOut.19.log 等）
+> - **grep_log 返回 30 条全是旧 INFO 级日志时**：不代表没有 SEVERE 错误，换用 `Grpsp2pngConverter|SEVERE` 或 `Unknown image format` 等更精确关键词重搜
+> - **Node 端 ENOENT 是症状不是根因**：看到 `ENOENT: Pictures/grpsp*.png` 后，必须去 Java 日志找 `Grpsp2pngConverter` 的 SEVERE 报错
 
 ## ResCode 速查
 

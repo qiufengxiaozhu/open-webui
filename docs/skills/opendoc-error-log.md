@@ -47,17 +47,26 @@ disable-model-invocation: true
 
 ## 核心搜索关键字
 
-| 阶段 | grep_log 搜索 pattern |
-|------|----------------------|
-| 全链路 | `<docId>` 或 `<taskId>` |
-| ①入口 | `errorCode\|error\.ejs\|LICENSE_EXPIRE\|NO_RIGHT` |
-| ②WebSocket | `AUTH_OTHER_ERROR\|SESSION_EXPIRE\|REACH_MAX` |
-| ③打开 | `startConvert\|needConvert\|importFailProcess` |
-| ④转换 | `Result of Conversion task\|Catch Exception\|CLConvertor.*ExitCode` |
-| ④Java层 | `ERROR\|Exception\|OutOfMemory`（搜索java*.log） |
-| ④下载 | `Download\|fileSize` |
-| ⑤Draft | `Could not find draft\|Could not get draft` |
-| ⑦保存 | `PUBLISH_REMOTE_ERROR\|applyMessages.*error` |
+| 阶段 | grep_log 搜索 pattern | 搜索范围 |
+|------|----------------------|---------|
+| 全链路 | `<docId>` 或 `<taskId>` | 全部日志 |
+| ①入口 | `errorCode\|error\.ejs\|LICENSE_EXPIRE\|NO_RIGHT` | combined*.log |
+| ②WebSocket | `AUTH_OTHER_ERROR\|SESSION_EXPIRE\|REACH_MAX` | combined*.log |
+| ③打开 | `startConvert\|needConvert\|importFailProcess` | combined*.log |
+| ④转换(Node) | `Result of Conversion task\|Catch Exception\|CLConvertor.*ExitCode` | combined*.log + error*.log |
+| ④转换(Java) | `SEVERE\|Exception\|OutOfMemory\|CellsException` | **全部 java-systemOut*.log（含轮转文件）** |
+| ④SmartArt转图 | `Grpsp2pngConverter\|Unknown image format` | **全部 java-systemOut*.log（含轮转文件）** |
+| ④ENOENT症状 | `ENOENT.*grpsp\|target file not exist` | error*.log + combined*.log |
+| ④下载 | `Download\|fileSize` | combined*.log |
+| ⑤Draft | `Could not find draft\|Could not get draft` | combined*.log |
+| ⑦保存 | `PUBLISH_REMOTE_ERROR\|applyMessages.*error` | combined*.log |
+
+> **重要**：
+> - Java 日志时间 = Node 时间 - 8h（Java UTC+0，Node UTC+8）。搜索 Java 日志时必须先换算时区
+> - `total: 30, limit: 30` 说明结果被截断，需缩小范围继续搜索
+> - 搜索必须覆盖**全部 TaskServer 节点**的**全部轮转文件**（java-systemOut.0.log ~ java-systemOut.19.log 等）
+> - **grep_log 返回 30 条全是旧 INFO 级日志时**：不代表没有 SEVERE 错误，换用 `Grpsp2pngConverter|SEVERE` 或 `Unknown image format` 等更精确关键词重搜
+> - **Node 端 ENOENT 是症状不是根因**：看到 `ENOENT: Pictures/grpsp*.png` 后，必须去 Java 日志找 `Grpsp2pngConverter` 的 SEVERE 报错
 
 ## 错误码速查
 

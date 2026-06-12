@@ -1500,9 +1500,15 @@ async def grep_log(
         for f in files:
             extracted_dir = _get_extracted_dir(f)
             if extracted_dir:
+                # 剥离压缩包文件名前缀（如 "log.tar/"），因为解压目录内的 rel_path 不含该前缀
+                effective_filter = file
+                if effective_filter and f.filename:
+                    prefix = f'{f.filename}/'
+                    if effective_filter.startswith(prefix):
+                        effective_filter = effective_filter[len(prefix):]
                 disk_matches = await asyncio.to_thread(
                     _grep_in_extracted_dir, extracted_dir, regex,
-                    filename_filter=file, context=context, max_matches=MAX_GREP_MATCHES,
+                    filename_filter=effective_filter, context=context, max_matches=MAX_GREP_MATCHES,
                 )
                 for m in disk_matches:
                     m['file'] = f'{f.filename}/{m["file"]}'
@@ -1687,8 +1693,13 @@ async def time_window(
         for f in all_files:
             extracted_dir = _get_extracted_dir(f)
             if extracted_dir:
+                effective_filter = file
+                if effective_filter and f.filename:
+                    prefix = f'{f.filename}/'
+                    if effective_filter.startswith(prefix):
+                        effective_filter = effective_filter[len(prefix):]
                 file_results = await asyncio.to_thread(
-                    _read_all_lines_from_extracted, extracted_dir, file,
+                    _read_all_lines_from_extracted, extracted_dir, effective_filter,
                 )
                 for rel_path, lines in file_results:
                     for idx, line in enumerate(lines):
@@ -1799,8 +1810,13 @@ async def count_errors(
         for f in all_files:
             extracted_dir = _get_extracted_dir(f)
             if extracted_dir:
+                effective_filter = file
+                if effective_filter and f.filename:
+                    prefix = f'{f.filename}/'
+                    if effective_filter.startswith(prefix):
+                        effective_filter = effective_filter[len(prefix):]
                 file_results = await asyncio.to_thread(
-                    _read_all_lines_from_extracted, extracted_dir, file,
+                    _read_all_lines_from_extracted, extracted_dir, effective_filter,
                 )
                 for rel_path, lines in file_results:
                     _count_lines(lines, f'{f.filename}/{rel_path}')
