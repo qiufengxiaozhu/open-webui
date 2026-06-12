@@ -17,6 +17,7 @@
 | S8 | WebSocket连接失败 | 白屏/断线 | AUTH_OTHER_ERROR |
 | S9 | License异常 | "License过期" | LICENSE_* |
 | S10 | 文字乱码/字体缺失 | 文档内容显示为乱码或方块 | 无错误码(文档可打开) |
+| S11 | SmartArt/组合图形图片缺失 | 预览时图片404/转PDF失败 | modelOpUnSupport |
 
 ---
 
@@ -120,3 +121,19 @@
 1. **上传字体文件**：在文档中台的**管理控制台**中上传文档所需的字体文件（.ttf/.otf/.ttc等），文档中台不提供字体，需用户自行准备
 2. **重新上传文档**：字体上传后，必须**重新上传一份新文档**才能生效，不能使用历史已打开过的文档（历史文档的转换结果已缓存，不会重新转换）
 3. **如仍乱码则重启服务**：若重新上传文档后仍然乱码，需要**重启文档中台服务**使新字体生效（字体加载在服务启动时完成）
+
+---
+
+## S11: SmartArt/组合图形图片缺失
+
+**前端表现**：Excel 文档预览时部分图片显示为空白/404，或转换 PDF 失败（`modelOpUnSupport`）
+
+**日志关键字**：
+- Java 端（根因）：`Grpsp2pngConverter` / `Unknown image format` / `CellsException` / `BatchOBJS2PNGConverter`
+- Node 端（表象）：`ENOENT Pictures/grpsp*.png` / `can not find document draft Attachment` / `processResult: false` / `modelOpResCode: modelOpUnSupport`
+
+**诊断**：xlsx 内含 SmartArt 组合图形，Java 端 Aspose Cells 抽取子图时因图片格式不识别（EMF/WMF 等）报 `Unknown image format`，导致 PNG 未生成。Node 端读取时 ENOENT 只是表象，需反查 Java 日志找到 Aspose 报错才是根因。注意 Java 时间比 Node 早 8 小时。
+
+**引导用户验证**：
+1. 在 Excel/WPS 中打开文件，找到 SmartArt 组合图形，**右键→取消组合**成普通图片后重新上传
+2. 或尝试 Excel 中**另存为 PDF** 验证本机是否正常

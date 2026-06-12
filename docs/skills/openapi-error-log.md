@@ -73,7 +73,8 @@ disable-model-invocation: true
 | ⑤校验 | `Invalid File mime type\|Password Protected\|FILE_TOO_LARGE` |
 | ⑥转换 | `Result of Conversion task\|Catch Exception\|CLConvertor.*ExitCode` |
 | ⑥Java层 | `ERROR\|Exception\|OutOfMemory`（java*.log） |
-| ⑥ModelOp | `model op busy\|model op fail\|Worker.*killed` |
+| ⑥ModelOp | `model op busy\|model op fail\|Worker.*killed\|modelOpUnSupport` |
+| ⑥SmartArt转图 | `Grpsp2pngConverter\|Unknown image format\|BatchOBJS2PNGConverter`（java*.log） |
 | ⑦回调 | `notify.*Success\|notify res fail\|task notify with error` |
 
 ## ResCode 速查

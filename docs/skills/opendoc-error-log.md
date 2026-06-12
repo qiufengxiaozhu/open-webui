@@ -41,6 +41,7 @@ disable-model-invocation: true
 | 图片不显示 | ⑧资源 | `[attachment]` |
 | draft加载失败 | ⑤Draft | `[DraftStorageService]` |
 | 文字乱码/方块 | 字体缺失(非错误) | 无错误日志,需上传字体 |
+| SmartArt图片缺失/404 | ④SmartArt转图失败 | `Grpsp2pngConverter` `Unknown image format`(java) |
 
 > 场景详细诊断见 `references/opendoc-error-scenarios.md`
 

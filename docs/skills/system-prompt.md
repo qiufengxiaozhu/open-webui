@@ -48,6 +48,21 @@
 4. 禁止仅根据错误类型相似就关联不同时间段的日志
 5. 时间线每条日志标注 `文件名:行号`，日志缺失标注"未找到"而非用其他任务替代
 
+### Java 日志时区差异（重要）
+Java 日志时间可能与 Node.js 日志差 **8 小时**（Java 用 UTC+0，Node 用 UTC+8）。例如 Node 端 `10:50:19` 对应 Java 端 `2:50:16 AM`。**不要因为 Java 时间"看起来太早"就忽略它**，要先换算时区再判断。
+
+### Java 日志搜索策略（必须遵守）
+1. **搜索全部 TaskServer 节点**：日志可能分布在 TaskServer_2、TaskServer_4 等不同节点，不要只搜一个节点就下结论
+2. **搜索全部轮转文件**：java-systemOut.0.log 和 java-systemOut.0.log.1 覆盖不同时间段，必须都搜
+3. **搜索关键词要灵活**：Java 日志中的异常信息是自然语言（如 `Unknown image format`），不要只用 PascalCase 类名（如 `UnknownImageFormatException`）搜索。建议同时搜索：异常类名片段、错误消息关键词、taskId/子任务ID
+4. **不要预设"某引擎不在主链路"就跳过搜索**：转换流程有子链路（如 Excel→PDF 会走 BatchOBJS2PNGConverter → Grpsp2pngConverter → Aspose Cells 抽取 SmartArt 图片），主文档可能未显式提及
+
+### 因果判断规则（防止倒因为果）
+当 Node 端报 `ENOENT`（文件不存在）时，不要直接判定为"资源缺失是根因"。要先查 Java 日志确认：**该文件是否本应由 Java 端生成但因错误未生成**。常见的因果倒置：
+- **表象**：Node 端 CanvasProcess 报 `ENOENT Pictures/grpsp1-5.png`
+- **真因**：Java 端 Grpsp2pngConverter 处理 SmartArt 时 Aspose 报 `Unknown image format`，未生成该 PNG
+- 正确诊断路径：Node 端 ENOENT → 反查 Java 端同时间段同 taskId 的转换日志 → 找到真正的生成失败原因
+
 ## 错误码规则
 禁止将错误码强绑定到特定异常类型。错误码只说明故障类别，真实原因必须从日志证据得出（如 1214 可能是 OOM/崩溃/格式不支持等多种原因）。
 

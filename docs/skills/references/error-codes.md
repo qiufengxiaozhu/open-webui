@@ -34,5 +34,7 @@
 | 格式不一致 | `extension and real format are inconsistent` | 通常为警告 |
 | 认证失败 | `[restAuth] auth fail` | token过期或无效 |
 | 存储HTTP错误 | `rest store post request is rejected` | 集成存储配置错误 |
+| SmartArt转图失败 | `Grpsp2pngConverter` + `Unknown image format` | Aspose不识别SmartArt内部图片格式(EMF/WMF等)，Node端表现为ENOENT |
+| ModelOp不支持 | `modelOpResCode: modelOpUnSupport` | Canvas渲染阶段失败，常因SmartArt/图片资源缺失，需查Java端真正原因 |
 
 > 1215-1299范围错误码被ErrorUtil统一归一为CONVERSION_UNKNOWN

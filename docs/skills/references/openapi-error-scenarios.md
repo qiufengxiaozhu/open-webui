@@ -36,6 +36,7 @@
 | S6 | 引擎繁忙/错误 | conversion soffice err/ServerBusy | 493,1011,505,506 |
 | S7 | 文件过大 | content toolarge | 413,901,530-539 |
 | S8 | ModelOp失败 | model op busy/fail/error | — |
+| S8a | SmartArt/组合图形转图失败 | model op busy + modelOpUnSupport | 1299(表面成功码) |
 | S9 | 回调未收到 | 无回调 | — |
 | S10 | 下载失败 | HTTP响应错误 | 423-426,502 |
 | S11 | 鉴权/参数错误 | HTTP同步返回 | 400-421 |
@@ -109,6 +110,36 @@
 **日志关键字**：`model op busy` / `model op with error` / `Worker killed because of timeout` / `Print writer To PDF Fail`
 
 **诊断**：busy=队列满 fail=执行失败 error=Canvas异常 → 搜索step1(CONVERT)+step2(MODEL_OP)两步日志
+
+---
+
+## S8a: SmartArt/组合图形转图失败（Aspose Unknown image format）
+
+**callback 特征**：`TaskFailNotify` + `detail.msg`: `model op busy` 或 `modelOpUnSupport`
+
+**日志关键字**（按诊断优先级排列）：
+- Java 端（真正根因）：`Grpsp2pngConverter` / `Unknown image format` / `CellsException` / `BatchOBJS2PNGConverter`
+- Node 端（表象）：`processResult: false` / `ENOENT Pictures/grpsp*.png` / `SaveAs: target file not exist` / `modelOpResCode: modelOpUnSupport`
+
+**典型案例**（Excel→PDF，xlsx 含 SmartArt 组合图形）：
+- xlsx 内嵌 SmartArt 组合图形（grpsp），Java 端 Aspose Cells 在抽取内部子图时报 `Unknown image format`（EMF/WMF 等冷门格式 Aspose 不识别）
+- Java 端转图失败 → 未生成 `grpsp1-5.png` → Node 端 CanvasProcess 读取时 ENOENT → PDF 输出失败 → 回调 `model op busy`
+
+**关键诊断陷阱**：
+1. **因果倒置**：Node 端的 `ENOENT Pictures/grpsp*.png` 只是**表象**，不是根因。真正原因在 Java 端的 Aspose 报错
+2. **Java 时区差 8 小时**：Java 日志时间 = Node 日志时间 - 8h（Java UTC+0，Node UTC+8），不要因时间"太早"忽略
+3. **需搜索全部 TaskServer 节点**：日志可能在 TaskServer_4 而不是 TaskServer_2
+4. **Excel 转 PDF 子链路经过 Aspose**：主链路是 CL+Canvas，但抽取 SmartArt 图片的子链路走 BatchOBJS2PNGConverter → Grpsp2pngConverter → Aspose Cells
+
+**诊断步骤**：
+1. 搜索 taskId 找到 Node 端的 `modelOpUnSupport` / `processResult: false`
+2. 从 Node 日志提取 ModelOp 子任务 ID（如 `4aafc1d1-...`）
+3. 用子任务 ID 在**所有 TaskServer 的 java-systemOut*.log** 中搜索（注意时区换算）
+4. 找到 `Grpsp2pngConverter` + `CellsException: Unknown image format` → 确认根因
+
+**引导用户验证**：
+1. 在 Excel/WPS 中打开文件，找到含图片的 SmartArt 组合图形，**右键→取消组合**成普通图片后重新上传
+2. 若取消组合不便，尝试 Excel 中**另存为 PDF** 看本机是否正常 — 若本机也异常说明 SmartArt 内图片已损坏
 
 ---
 
