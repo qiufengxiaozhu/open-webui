@@ -45,11 +45,19 @@
 
 ## S1: 转换失败(通用)
 
-**日志关键字**：`[ConvertWorker] Catch Exception` / `[CLConvertor] ExitCode` / `[CommonJavaConvertor] Error`
+**日志关键字**：`[ConvertWorker] Catch Exception` / `[CLConvertor] ExitCode` / `[CommonJavaConvertor] Error` / `UnsupportedFileFormatException`
 
-**诊断**：搜索taskId找Catch Exception或ExitCode → 看java*.log中异常堆栈 → 检查fileSize → 1214不能绑定特定异常
+**典型子场景**：
 
-**用户验证**：获取下载日志 → 小文件用文本编辑器看内容 → WPS/Office打开 → 检查扩展名一致性
+| 异常 | 引擎 | 含义 |
+|------|------|------|
+| `UnsupportedFileFormatException: Unsupported file format: Unknown` | Aspose.Words / Aspose.Cells | 文件头魔数不匹配任何已知格式，常见原因：文件损坏/下载不完整/扩展名与实际格式不一致 |
+| `Document is empty` + `ExitCode code=112` | CLConvertor(libxml2) | XML 解析器判定文件内容为空 |
+| `CellsException: Unknown image format` | Aspose.Cells (Grpsp2pngConverter) | xlsx 内嵌 SmartArt 图形转图失败（见 S8a 详情） |
+
+**诊断**：搜索taskId找 `Catch Exception` 或 `ExitCode` → 看 java*.log 中异常堆栈 → 检查fileSize → 1214 不能绑定特定异常 → 如果 `UnsupportedFileFormatException`，需确认文件实际格式
+
+**用户验证**：获取下载日志 → 小文件用文本编辑器看内容 → WPS/Office打开 → 检查扩展名一致性 → `xxd 文件 | head` 看首字节确认真实格式
 
 ---
 

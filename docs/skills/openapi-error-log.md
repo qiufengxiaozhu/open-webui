@@ -72,7 +72,7 @@ disable-model-invocation: true
 | ④下载 | `download error\|CONVERT_DOWNLOAD_ERROR\|0 bytes\|is too small` | combined*.log |
 | ⑤校验 | `Invalid File mime type\|Password Protected\|FILE_TOO_LARGE` | combined*.log |
 | ⑥转换(Node) | `Result of Conversion task\|Catch Exception\|CLConvertor.*ExitCode` | combined*.log + error*.log |
-| ⑥转换(Java) | `SEVERE\|Exception\|OutOfMemory\|CellsException` | **全部 java-systemOut*.log（含轮转文件）** |
+| ⑥转换(Java) | `SEVERE\|Exception\|OutOfMemory\|CellsException\|UnsupportedFileFormatException` | **全部 java-systemOut*.log（含轮转文件）** |
 | ⑥ModelOp | `model op busy\|model op fail\|Worker.*killed\|modelOpUnSupport` | combined*.log |
 | ⑥SmartArt转图 | `Grpsp2pngConverter\|Unknown image format` | **全部 java-systemOut*.log（含轮转文件）** |
 | ⑥ENOENT症状 | `ENOENT.*grpsp\|target file not exist` | error*.log + combined*.log |

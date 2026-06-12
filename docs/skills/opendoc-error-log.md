@@ -33,6 +33,7 @@ disable-model-invocation: true
 | 错误页面(error.ejs) | ①HTTP入口 | `[apigateway_api_docs]` |
 | 白屏/转圈不动 | ②③④ | `[ConnectionManager]` `[DocumentService]` |
 | "转换服务不可用"+ErrorCode | ④转换失败 | `[ConvertWorker]` |
+| "转换服务不可用"+1214+格式不识别 | ④Java格式异常 | `UnsupportedFileFormatException`(java) |
 | "无法打开文档"+1203 | ④MIME校验失败 | `convert import error` |
 | 一直转换中不结束 | ④IMPORTING超时 | `importFailProcess` |
 | "无权编辑" | ①③权限 | `[apigateway_api_docs]` |
@@ -54,7 +55,7 @@ disable-model-invocation: true
 | ②WebSocket | `AUTH_OTHER_ERROR\|SESSION_EXPIRE\|REACH_MAX` | combined*.log |
 | ③打开 | `startConvert\|needConvert\|importFailProcess` | combined*.log |
 | ④转换(Node) | `Result of Conversion task\|Catch Exception\|CLConvertor.*ExitCode` | combined*.log + error*.log |
-| ④转换(Java) | `SEVERE\|Exception\|OutOfMemory\|CellsException` | **全部 java-systemOut*.log（含轮转文件）** |
+| ④转换(Java) | `SEVERE\|Exception\|OutOfMemory\|CellsException\|UnsupportedFileFormatException` | **全部 java-systemOut*.log（含轮转文件）** |
 | ④SmartArt转图 | `Grpsp2pngConverter\|Unknown image format` | **全部 java-systemOut*.log（含轮转文件）** |
 | ④ENOENT症状 | `ENOENT.*grpsp\|target file not exist` | error*.log + combined*.log |
 | ④下载 | `Download\|fileSize` | combined*.log |

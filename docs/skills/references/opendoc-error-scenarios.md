@@ -34,9 +34,18 @@
 
 **日志关键字**：`[ConvertWorker] Catch Exception` / `UnsupportedFileFormatException` / `PptxReadException` / `[CLConvertor] stderr: Document is empty`
 
-**诊断**：搜索taskId找Catch Exception或CLConvertor stderr → 看Java异常确认格式类型 → 检查fileSize
+**典型子场景**：
 
-**用户验证**：获取下载日志 → 小文件用文本编辑器看内容 → WPS/Office打开验证 → 检查扩展名与格式是否一致
+| 异常 | 引擎 | 含义 |
+|------|------|------|
+| `UnsupportedFileFormatException: Unsupported file format: Unknown` | Aspose.Words / Aspose.Cells | 文件头魔数不匹配任何已知格式，常见原因：文件损坏/下载不完整/扩展名与实际格式不一致（如 `.docx` 实际是 HTML 或纯文本） |
+| `PptxReadException` | Aspose.Slides | PPT/PPTX 文件结构损坏或不完整 |
+| `Document is empty` + `ExitCode code=112` | CLConvertor(libxml2) | XML 解析器判定文件内容为空（0 字节 / 只有 XML 头无正文 / 下载截断） |
+| `CellsException: Unknown image format` | Aspose.Cells (Grpsp2pngConverter) | xlsx 内嵌 SmartArt 图形中的图片格式不识别（见 S11 详情） |
+
+**诊断**：搜索taskId找 `Catch Exception` 或 `CLConvertor stderr` → 看Java异常确认格式类型 → 检查fileSize → 如果 `UnsupportedFileFormatException`，需进一步确认文件实际格式（`xxd 文件 | head` 看魔数）
+
+**用户验证**：获取下载日志 → 小文件用文本编辑器看内容 → WPS/Office打开验证 → 检查扩展名与格式是否一致 → `xxd 文件 | head` 看首字节（PK=ZIP/OOXML, D0CF=OLE/旧版Office, 3C3F=XML/HTML）
 
 ---
 
